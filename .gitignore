@@ -1,0 +1,54 @@
+# ==========================================
+# Java / Maven
+# ==========================================
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.mvn/wrapper/maven-wrapper.jar
+
+# ==========================================
+# IDE
+# ==========================================
+.idea/
+*.iml
+.vscode/settings.json
+.eclipse/
+*.classpath
+*.project
+
+# ==========================================
+# Node / Angular
+# ==========================================
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/cache/
+npm-debug.log*
+yarn-debug.log*
+
+# ==========================================
+# Docker
+# ==========================================
+.env
+.env.local
+
+# ==========================================
+# Secrets (NE JAMAIS committer)
+# ==========================================
+*.key
+*.pem
+secrets.properties
+
+# ==========================================
+# OS
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# Uploads (données runtime)
+# ==========================================
+backend/commandes/uploads/
