@@ -1,0 +1,49 @@
+services:
+
+  mysql:
+    image: mariadb:latest
+    container_name: gestion_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: gestion_commandes_v2
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -u root -proot || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  backend:
+    build: ./backend/commandes
+    container_name: gestion_backend
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/gestion_commandes_v2?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      JWT_SECRET: change-me-in-production-use-long-random-string-at-least-32-chars
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: gestion_frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  uploads_data:
