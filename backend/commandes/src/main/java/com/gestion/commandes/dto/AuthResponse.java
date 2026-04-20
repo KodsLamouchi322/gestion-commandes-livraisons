@@ -1,0 +1,27 @@
+package com.gestion.commandes.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class AuthResponse {
+    private String token;
+    private String type = "Bearer";
+    private Integer id;
+    private String email;
+    private String nom;
+    private String prenom;
+    private String role;
+
+    public AuthResponse(String token, Integer id, String email, String nom, String prenom, String role) {
+        this.token = token;
+        this.id = id;
+        this.email = email;
+        this.nom = nom;
+        this.prenom = prenom;
+        this.role = role;
+    }
+}
