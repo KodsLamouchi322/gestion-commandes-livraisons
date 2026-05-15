@@ -1,0 +1,111 @@
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Annuaire des Clients 👥</h1>
+        <p>Gérez vos clients et leurs informations de contact</p>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="ouvrirModal()" aria-label="Ajouter un nouveau client">+ Nouveau client</button>
+</div>
+
+<!-- Loader -->
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">
+    Chargement des données...
+</div>
+
+<!-- Contenu principal -->
+<div *ngIf="!isLoading" class="glass-card table-container">
+
+    <div class="table-tools" *ngIf="clients.length > 0">
+        <input class="form-control" [(ngModel)]="search" (ngModelChange)="onSearchChange()" placeholder="Rechercher par ID, nom ou email..." aria-label="Rechercher un client">
+    </div>
+
+    <div class="empty-state" *ngIf="filteredClients.length === 0">
+        <div class="empty-icon">📭</div>
+        <h3>Aucun client trouvé</h3>
+        <p>Commencez par ajouter votre premier client pour le voir apparaître ici.</p>
+    </div>
+
+    <table class="modern-table" *ngIf="filteredClients.length > 0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nom Complet</th>
+                <th>Email</th>
+                <th>Adresse</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let client of paginatedClients">
+                <td>#{{ client.id }}</td>
+                <td><strong>{{ client.nom }}</strong></td>
+                <td>{{ client.email }}</td>
+                <td><span class="truncate-text" [title]="client.adresse">{{ client.adresse }}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button type="button" class="btn-icon btn-view" title="Modifier"
+                            [attr.aria-label]="'Modifier le client ' + client.nom"
+                            (click)="ouvrirEdition(client)" [disabled]="deletingClientId === client.id">✏️</button>
+                        <button type="button" class="btn-icon btn-delete" title="Supprimer"
+                            [attr.aria-label]="'Supprimer le client ' + client.nom"
+                            (click)="supprimerClient(client.id)" [disabled]="deletingClientId === client.id">🗑️</button>
+                        <span class="inline-progress" *ngIf="deletingClientId === client.id" role="status" aria-live="polite">Suppression en cours...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="pagination" *ngIf="filteredClients.length > pageSize">
+        <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage - 1)" [disabled]="currentPage === 1" aria-label="Page précédente">Précédent</button>
+        <span>Page {{ currentPage }} / {{ totalPages }}</span>
+        <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage + 1)" [disabled]="currentPage === totalPages" aria-label="Page suivante">Suivant</button>
+    </div>
+
+</div>
+
+<!-- Pop-up (Modal) d'ajout -->
+<div class="modal-backdrop" *ngIf="isModalOpen" (click)="fermerModal()"></div>
+<div class="modal-dialog glass-card" *ngIf="isModalOpen" role="dialog" aria-modal="true" [attr.aria-label]="isEditMode ? 'Modifier le client' : 'Nouveau client'">
+
+    <div class="modal-header">
+        <h2>{{ isEditMode ? 'Modifier le client' : 'Nouveau Client' }}</h2>
+        <button type="button" class="close-btn" (click)="fermerModal()" aria-label="Fermer la fenêtre">&times;</button>
+    </div>
+
+    <div class="modal-content">
+
+        <div class="form-group">
+            <label class="form-label">Nom complet</label>
+            <input type="text" class="form-control" [(ngModel)]="nouveauClient.nom" placeholder="Ex: Jean Dupont" aria-label="Nom complet du client">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Adresse Email</label>
+            <input type="email" class="form-control" [(ngModel)]="nouveauClient.email"
+                aria-label="Adresse email du client"
+                placeholder="Ex: jean.dupont@email.com">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Adresse de livraison</label>
+            <input type="text" class="form-control" [(ngModel)]="nouveauClient.adresse" aria-label="Adresse de livraison du client"
+                placeholder="Ex: 12 Rue de Paris, 75001">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Mot de passe {{ isEditMode ? '(laisser vide pour conserver)' : 'initial' }}</label>
+            <input type="password" class="form-control" [(ngModel)]="nouveauClient.motDePasse" aria-label="Mot de passe du client"
+                placeholder="Mot de passe provisoire">
+        </div>
+
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="fermerModal()">Annuler</button>
+        <button type="button" class="btn btn-primary" (click)="ajouterClient()" [disabled]="isSaving">
+            <span *ngIf="isSaving">⏳ Enregistrement...</span>
+            <span *ngIf="!isSaving">{{ isEditMode ? 'Mettre à jour le client' : 'Créer le client' }}</span>
+        </button>
+    </div>
+
+</div>

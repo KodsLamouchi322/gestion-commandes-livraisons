@@ -1,0 +1,88 @@
+<div class="dashboard-header">
+    <div>
+        <h1>Tableau de Bord 🚀</h1>
+        <p>Aperçu en temps réel de votre activité logistique</p>
+    </div>
+
+    <div class="date-badge glass-card">
+        📅 {{ today | date:'longDate':'fr-FR' }}
+    </div>
+</div>
+
+<div *ngIf="isLoading" class="stats-grid">
+    <div class="skeleton-card" *ngFor="let i of [1,2,3,4,5]">
+        <div class="skeleton-row icon"></div>
+        <div class="skeleton-row title"></div>
+        <div class="skeleton-row value"></div>
+        <div class="skeleton-row meter"></div>
+    </div>
+</div>
+
+<div class="stats-grid" *ngIf="!isLoading">
+
+    <!-- Carte 1 -->
+    <div class="stat-card glass-card glass-card--hoverable">
+        <div class="stat-icon bg-primary">👥</div>
+        <div class="stat-info">
+            <h3>Clients Inscrits</h3>
+            <h2>{{ statistiques.clients }}</h2>
+            <div class="stat-meter stat-meter-primary"><span [style.width.%]="trendPercent(statistiques.clients)"></span></div>
+            <small class="stat-meta">Base clients active</small>
+        </div>
+    </div>
+
+    <!-- Carte 2 -->
+    <div class="stat-card glass-card glass-card--hoverable">
+        <div class="stat-icon bg-warning">⏳</div>
+        <div class="stat-info">
+            <h3>Commandes en attente</h3>
+            <h2>{{ statistiques.commandesEnAttente }}</h2>
+            <div class="stat-meter stat-meter-warning"><span [style.width.%]="trendPercent(statistiques.commandesEnAttente)"></span></div>
+            <small class="stat-meta">À traiter en priorité</small>
+        </div>
+    </div>
+
+    <!-- Carte 3 -->
+    <div class="stat-card glass-card glass-card--hoverable">
+        <div class="stat-icon bg-success">✅</div>
+        <div class="stat-info">
+            <h3>Commandes validées</h3>
+            <h2>{{ statistiques.commandesValidees }}</h2>
+            <div class="stat-meter stat-meter-success"><span [style.width.%]="trendPercent(statistiques.commandesValidees)"></span></div>
+            <small class="stat-meta">Flux confirmé</small>
+        </div>
+    </div>
+
+    <!-- Carte 4 -->
+    <div class="stat-card glass-card glass-card--hoverable">
+        <div class="stat-icon bg-info">🚚</div>
+        <div class="stat-info">
+            <h3>Livraisons en cours</h3>
+            <h2>{{ statistiques.livraisonsEnCours }}</h2>
+            <div class="stat-meter stat-meter-info"><span [style.width.%]="trendPercent(statistiques.livraisonsEnCours)"></span></div>
+            <small class="stat-meta">Suivi expédition live</small>
+        </div>
+    </div>
+
+    <!-- Carte Revenus -->
+    <div class="stat-card revenue-card glass-card glass-card--hoverable">
+        <div class="stat-icon bg-revenue">💶</div>
+        <div class="stat-info">
+            <h3>Chiffre d'affaires Global</h3>
+            <h2>{{ statistiques.chiffreAffaires | currency:'EUR':'symbol' }}</h2>
+            <div class="stat-meter stat-meter-revenue"><span [style.width.%]="revenuePercent()"></span></div>
+            <small class="stat-meta">Tendance mensuelle</small>
+        </div>
+    </div>
+
+</div>
+
+<!-- Boutons d'actions rapides -->
+<div class="actions-section">
+    <h2>Actions Rapides</h2>
+    <div class="actions-grid">
+        <a routerLink="/admin/commandes" class="btn btn-primary">📦 Gérer les commandes</a>
+        <a routerLink="/admin/livraisons" class="btn btn-outline">🚚 Suivre les livraisons</a>
+        <a routerLink="/admin/clients" class="btn btn-outline">🧑‍💻 Annuaire Clients</a>
+    </div>
+</div>

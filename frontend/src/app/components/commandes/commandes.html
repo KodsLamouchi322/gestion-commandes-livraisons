@@ -1,0 +1,65 @@
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Suivi des Commandes 📦</h1>
+        <p>Gérez et traitez les commandes de vos clients</p>
+    </div>
+</div>
+
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">
+    Chargement des commandes...
+</div>
+
+<div *ngIf="!isLoading" class="glass-card table-container">
+
+    <div class="table-tools" *ngIf="commandes.length > 0">
+        <input class="form-control" [(ngModel)]="search" (ngModelChange)="onSearchChange()" placeholder="Rechercher par ID, client ou statut..." aria-label="Rechercher une commande">
+    </div>
+
+    <div class="empty-state" *ngIf="filteredCommandes.length === 0">
+        <div class="empty-icon">📭</div>
+        <h3>Aucune commande trouvée</h3>
+    </div>
+
+    <table class="modern-table" *ngIf="filteredCommandes.length > 0">
+        <thead>
+            <tr>
+                <th>N° Commande</th>
+                <th>Client</th>
+                <th>Date</th>
+                <th>Montant</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let cmd of paginatedCommandes">
+                <td><strong>#CMD-{{ cmd.id }}</strong></td>
+                <!-- Utilise clientNom (DTO) avec fallback sur client.nom (legacy) -->
+                <td>{{ getClientNom(cmd) }}</td>
+                <td>{{ (cmd.dateCommande || cmd.date) | date:'short' }}</td>
+                <td><strong>{{ cmd.montantTotal | currency:'EUR':'symbol' }}</strong></td>
+                <td>
+                    <span [ngClass]="getBadgeClass(cmd.statut)">{{ cmd.statut }}</span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary btn-sm" *ngIf="cmd.statut === 'EN_ATTENTE'"
+                            [attr.aria-label]="'Valider la commande ' + cmd.id"
+                            (click)="validerCommande(cmd.id)" [disabled]="processingCommandeId === cmd.id">✅ Valider</button>
+                        <button class="btn btn-danger btn-sm"
+                            *ngIf="cmd.statut !== 'LIVREE' && cmd.statut !== 'ANNULEE'"
+                            [attr.aria-label]="'Annuler la commande ' + cmd.id"
+                            (click)="annulerCommande(cmd.id)" [disabled]="processingCommandeId === cmd.id">Annuler</button>
+                        <span class="inline-progress" *ngIf="processingCommandeId === cmd.id" role="status" aria-live="polite">Mise à jour en cours...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="pagination" *ngIf="filteredCommandes.length > pageSize">
+        <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage - 1)" [disabled]="currentPage === 1" aria-label="Page précédente">Précédent</button>
+        <span>Page {{ currentPage }} / {{ totalPages }}</span>
+        <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage + 1)" [disabled]="currentPage === totalPages" aria-label="Page suivante">Suivant</button>
+    </div>
+</div>
