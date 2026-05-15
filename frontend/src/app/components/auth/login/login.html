@@ -1,0 +1,24 @@
+<div class="auth-page">
+    <div class="auth-card glass-card">
+        <h1>Connexion</h1>
+        <p class="subtitle">Connectez-vous à votre espace personnel</p>
+
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" [(ngModel)]="email" autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Mot de passe</label>
+            <input type="password" class="form-control" [(ngModel)]="motDePasse" autocomplete="current-password">
+        </div>
+
+        <p class="error" *ngIf="error">{{ error }}</p>
+
+        <button class="btn btn-primary btn-block" (click)="seConnecter()">Se connecter</button>
+
+        <p class="footer-link">
+            Pas encore de compte client ?
+            <a routerLink="/auth/register">Créer un compte</a>
+        </p>
+    </div>
+</div>

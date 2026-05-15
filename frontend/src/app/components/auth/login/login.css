@@ -1,0 +1,41 @@
+.auth-page {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 2rem;
+}
+
+.subtitle {
+    color: #64748b;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.btn-block {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.error {
+    color: #b91c1c;
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+}
+
+.footer-link {
+    margin-top: 1.25rem;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.footer-link a {
+    color: var(--primary, #2563eb);
+    font-weight: 600;
+}
