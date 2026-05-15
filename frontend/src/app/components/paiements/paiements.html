@@ -1,0 +1,53 @@
+<div class="page-header">
+    <div>
+        <h1>Transactions et Paiements 💳</h1>
+        <p>Historique financier lié aux commandes</p>
+    </div>
+</div>
+
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">
+    Chargement des paiements...
+</div>
+
+<div *ngIf="!isLoading" class="glass-card table-container">
+
+    <div class="empty-state" *ngIf="paiements.length === 0">
+        <div class="empty-icon">📭</div>
+        <h3>Aucune transaction trouvée</h3>
+    </div>
+
+    <table class="modern-table" *ngIf="paiements.length > 0">
+        <thead>
+            <tr>
+                <th>N° ID</th>
+                <th>Commande</th>
+                <th>Mode</th>
+                <th>Date</th>
+                <th>Statut</th>
+                <th>Actions rapides</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let p of paiements">
+                <td><strong>#TX-{{ p.id }}</strong></td>
+                <td>CMD-{{ p.commande?.id }}</td>
+                <td>{{ p.methodePaiement }}</td>
+                <td>{{ (p.datePaiement || p.date) | date:'short' }}</td>
+                <td>
+                    <span [ngClass]="getBadgeClass(p.statut)">{{ p.statut }}</span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary btn-sm" *ngIf="p.statut === 'EN_ATTENTE'"
+                            [attr.aria-label]="'Confirmer le paiement ' + p.id"
+                            (click)="confirmerPaiement(p.id)" [disabled]="processingPaiementId === p.id">Confirmer</button>
+                        <button class="btn btn-outline btn-sm" *ngIf="p.statut === 'VALIDE'"
+                            [attr.aria-label]="'Rembourser le paiement ' + p.id"
+                            (click)="rembourserPaiement(p.id)" [disabled]="processingPaiementId === p.id">Rembourser</button>
+                        <span class="inline-progress" *ngIf="processingPaiementId === p.id" role="status" aria-live="polite">Traitement en cours...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>

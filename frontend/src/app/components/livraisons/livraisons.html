@@ -1,0 +1,52 @@
+<div class="page-header">
+    <div>
+        <h1>Suivi des Livraisons 🚚</h1>
+        <p>Pilotez l'expédition et le transport de vos commandes</p>
+    </div>
+</div>
+
+<div *ngIf="isLoading" class="loader">
+    Chargement des livraisons...
+</div>
+
+<div *ngIf="!isLoading" class="glass-card table-container">
+
+    <div class="empty-state" *ngIf="livraisons.length === 0">
+        <div class="empty-icon">📭</div>
+        <h3>Aucune livraison trouvée</h3>
+    </div>
+
+    <table class="modern-table" *ngIf="livraisons.length > 0">
+        <thead>
+            <tr>
+                <th>N° Livraison</th>
+                <th>Commande associée</th>
+                <th>Transporteur</th>
+                <th>Coût</th>
+                <th>Statut</th>
+                <th>Actions rapides</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let liv of livraisons">
+                <td><strong>#LIV-{{ liv.id }}</strong></td>
+                <!-- Backend renvoie commandeId (LivraisonDTO) -->
+                <td>CMD-{{ liv.commandeId }}</td>
+                <!-- Backend renvoie transporteurNom (LivraisonDTO) -->
+                <td>{{ liv.transporteurNom || '—' }}</td>
+                <td><strong>{{ liv.cout | currency:'EUR':'symbol' }}</strong></td>
+                <td>
+                    <span [ngClass]="getBadgeClass(liv.statut)">{{ liv.statut }}</span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary btn-sm" *ngIf="liv.statut === 'EN_PREPARATION'"
+                            (click)="changerStatut(liv.id, 'EN_TRANSIT')">Expédier</button>
+                        <button class="btn btn-outline btn-sm" *ngIf="liv.statut === 'EN_TRANSIT'"
+                            (click)="changerStatut(liv.id, 'LIVREE')">Clôturer</button>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>

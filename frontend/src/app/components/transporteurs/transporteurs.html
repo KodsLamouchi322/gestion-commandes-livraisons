@@ -1,0 +1,95 @@
+<div class="page-header">
+    <div>
+        <h1>Partenaires Transporteurs 🚛</h1>
+        <p>Annuaire des sociétés de livraison</p>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="ouvrirModal()" aria-label="Ajouter un nouveau transporteur">+ Nouveau transporteur</button>
+</div>
+
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">
+    Chargement des transporteurs...
+</div>
+
+<div *ngIf="!isLoading" class="glass-card table-container">
+
+    <div class="empty-state" *ngIf="transporteurs.length === 0">
+        <div class="empty-icon">📭</div>
+        <h3>Aucun transporteur partenaire</h3>
+    </div>
+
+    <table class="modern-table" *ngIf="transporteurs.length > 0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Compagnie</th>
+                <th>Contact (Tél)</th>
+                <!-- Remplacé note par nombreLivraisons (TransporteurDTO) -->
+                <th>Livraisons</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let t of transporteurs">
+                <td>#{{ t.id }}</td>
+                <td><strong>{{ t.nom }}</strong></td>
+                <td>{{ t.telephone }}</td>
+                <!-- Backend renvoie nombreLivraisons dans TransporteurDTO -->
+                <td>
+                    <span class="badge badge-info">{{ t.nombreLivraisons || 0 }} livraison(s)</span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-outline btn-sm" title="Modifier"
+                            [attr.aria-label]="'Modifier le transporteur ' + t.nom"
+                            (click)="ouvrirEdition(t)" [disabled]="deletingTransporteurId === t.id">✏️</button>
+                        <button class="btn-icon btn-delete" title="Révoquer"
+                            [attr.aria-label]="'Supprimer le transporteur ' + t.nom"
+                            (click)="supprimerTransporteur(t.id)" [disabled]="deletingTransporteurId === t.id">🗑️</button>
+                        <span class="inline-progress" *ngIf="deletingTransporteurId === t.id" role="status" aria-live="polite">Suppression en cours...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Transporteur -->
+<div class="modal-backdrop" *ngIf="isModalOpen" (click)="fermerModal()"></div>
+<div class="modal-dialog glass-card" *ngIf="isModalOpen" role="dialog" aria-modal="true" [attr.aria-label]="isEditMode ? 'Modifier le transporteur' : 'Nouveau transporteur'">
+
+    <div class="modal-header">
+        <h2>{{ isEditMode ? 'Modifier le transporteur' : 'Nouveau Transporteur' }}</h2>
+        <button type="button" class="close-btn" (click)="fermerModal()" aria-label="Fermer la fenêtre">&times;</button>
+    </div>
+
+    <div class="modal-content">
+
+        <div class="form-group">
+            <label class="form-label">Nom de la société</label>
+            <input type="text" class="form-control" [(ngModel)]="nouveauTransporteur.nom" aria-label="Nom de la société"
+                placeholder="Ex: DHL, FedEx...">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Numéro de téléphone</label>
+            <input type="text" class="form-control" [(ngModel)]="nouveauTransporteur.telephone" aria-label="Numéro de téléphone"
+                placeholder="Ex: 55443322">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Email (optionnel)</label>
+            <input type="email" class="form-control" [(ngModel)]="nouveauTransporteur.email" aria-label="Email du transporteur"
+                placeholder="Ex: contact@dhl.com">
+        </div>
+
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="fermerModal()">Annuler</button>
+        <button type="button" class="btn btn-primary" (click)="ajouterTransporteur()" [disabled]="isSaving">
+            <span *ngIf="isSaving">⏳ Enregistrement...</span>
+            <span *ngIf="!isSaving">{{ isEditMode ? 'Mettre à jour le transporteur' : 'Créer le transporteur' }}</span>
+        </button>
+    </div>
+
+</div>
