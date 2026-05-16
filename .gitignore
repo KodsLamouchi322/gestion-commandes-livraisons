@@ -52,3 +52,6 @@ desktop.ini
 # Uploads (données runtime)
 # ==========================================
 backend/commandes/uploads/
+
+# JDK tools (trop lourds pour GitHub)
+.tools/
