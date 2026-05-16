@@ -1,0 +1,53 @@
+<div class="page-header">
+    <div><h1>Catégories 🏷️</h1><p>Organisez vos produits par catégorie</p></div>
+    <button class="btn btn-primary" (click)="ouvrir()">+ Nouvelle Catégorie</button>
+</div>
+
+<div *ngIf="isLoading" class="loader">Chargement...</div>
+
+<div *ngIf="!isLoading" class="glass-card table-container">
+    <div class="empty-state" *ngIf="categories.length===0">
+        <div class="empty-icon">🏷️</div><h3>Aucune catégorie</h3>
+    </div>
+    <table class="modern-table" *ngIf="categories.length>0">
+        <thead><tr><th>ID</th><th>Nom</th><th>Description</th><th>Actions</th></tr></thead>
+        <tbody>
+            <tr *ngFor="let c of categories">
+                <td>#{{ c.id }}</td>
+                <td><strong>{{ c.nom }}</strong></td>
+                <td>{{ c.description || '—' }}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-outline btn-sm" (click)="ouvrir(c)">✏️</button>
+                        <button class="btn-icon btn-delete" (click)="supprimer(c.id)">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="modal-backdrop" *ngIf="isModalOpen" (click)="fermer()"></div>
+<div class="modal-dialog glass-card" *ngIf="isModalOpen">
+    <div class="modal-header">
+        <h2>{{ editMode ? 'Modifier' : 'Nouvelle' }} Catégorie</h2>
+        <span class="close-btn" (click)="fermer()">&times;</span>
+    </div>
+    <div class="modal-content">
+        <div class="form-group">
+            <label class="form-label">Nom *</label>
+            <input class="form-control" [(ngModel)]="current.nom" placeholder="Ex: Électronique">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" [(ngModel)]="current.description" rows="2" placeholder="Description optionnelle"></textarea>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-outline" (click)="fermer()">Annuler</button>
+        <button class="btn btn-primary" (click)="sauvegarder()" [disabled]="isSaving">
+            <span *ngIf="isSaving">⏳ En cours...</span>
+            <span *ngIf="!isSaving">Enregistrer</span>
+        </button>
+    </div>
+</div>

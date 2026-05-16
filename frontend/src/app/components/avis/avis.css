@@ -1,0 +1,13 @@
+/* Avis admin styles */
+.table-tools {
+	padding: 1rem;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.pagination {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.7rem;
+	padding: 1rem;
+}

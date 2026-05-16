@@ -1,0 +1,55 @@
+<div class="page-header">
+  <h1>Fournisseurs 🏢</h1>
+  <button type="button" class="btn btn-primary" (click)="ouvrirModal()" aria-label="Ajouter un nouveau fournisseur">+ Nouveau fournisseur</button>
+</div>
+
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">Chargement des fournisseurs...</div>
+
+<div class="glass-card" *ngIf="!isLoading">
+  <table class="modern-table" *ngIf="fournisseurs.length > 0; else emptyTpl">
+    <thead><tr><th>ID</th><th>Nom</th><th>Email</th><th>Téléphone</th><th>Adresse</th><th>Actions</th></tr></thead>
+    <tbody>
+      <tr *ngFor="let f of fournisseurs">
+        <td>#{{f.id}}</td>
+        <td><strong>{{f.nom}}</strong></td>
+        <td>{{f.email}}</td>
+        <td>{{f.telephone}}</td>
+        <td>{{f.adresse}}</td>
+        <td>
+          <div class="action-buttons">
+            <button type="button" class="btn btn-outline btn-sm" (click)="ouvrirModal(f)" [disabled]="deletingFournisseurId === f.id" [attr.aria-label]="'Modifier le fournisseur ' + f.nom">✏️ Modifier</button>
+            <button type="button" class="btn-icon btn-delete" (click)="supprimer(f.id)" [disabled]="deletingFournisseurId === f.id" [attr.aria-label]="'Supprimer le fournisseur ' + f.nom">🗑️</button>
+            <span class="inline-progress" *ngIf="deletingFournisseurId === f.id" role="status" aria-live="polite">Suppression en cours...</span>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #emptyTpl>
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <h3>Aucun fournisseur</h3>
+    </div>
+  </ng-template>
+</div>
+
+<div class="modal-backdrop" *ngIf="isModalOpen" (click)="fermerModal()"></div>
+<div class="modal-dialog glass-card" *ngIf="isModalOpen" role="dialog" aria-modal="true" [attr.aria-label]="isEditMode ? 'Modifier le fournisseur' : 'Nouveau fournisseur'">
+  <div class="modal-header">
+    <h2>{{ isEditMode ? 'Modifier le fournisseur' : 'Nouveau fournisseur' }}</h2>
+    <button type="button" class="close-btn" (click)="fermerModal()" aria-label="Fermer la fenêtre">&times;</button>
+  </div>
+  <div class="modal-content">
+    <input class="form-control mb-2" [(ngModel)]="nouveau.nom" placeholder="Nom" aria-label="Nom du fournisseur">
+    <input class="form-control mb-2" [(ngModel)]="nouveau.email" placeholder="Email" aria-label="Email du fournisseur">
+    <input class="form-control mb-2" [(ngModel)]="nouveau.telephone" placeholder="Téléphone" aria-label="Téléphone du fournisseur">
+    <input class="form-control" [(ngModel)]="nouveau.adresse" placeholder="Adresse" aria-label="Adresse du fournisseur">
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-outline" (click)="fermerModal()">Annuler</button>
+    <button type="button" class="btn btn-primary" (click)="ajouter()" [disabled]="isSaving">
+        <span *ngIf="isSaving">⏳ Enregistrement...</span>
+        <span *ngIf="!isSaving">{{ isEditMode ? 'Mettre à jour le fournisseur' : 'Créer le fournisseur' }}</span>
+    </button>
+  </div>
+</div>

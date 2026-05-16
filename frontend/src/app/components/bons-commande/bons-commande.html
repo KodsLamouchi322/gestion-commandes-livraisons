@@ -1,0 +1,86 @@
+<div class="page-header">
+  <h1 class="page-title">Bons de Commande Fournisseur 📜</h1>
+  <button class="btn btn-primary" (click)="ouvrirCreateModal()">+ Nouveau bon</button>
+</div>
+
+<div *ngIf="isLoading" class="loader">
+  Chargement...
+</div>
+
+<div *ngIf="!isLoading" class="glass-card">
+  <table class="modern-table">
+    <thead><tr><th>ID</th><th>Fournisseur</th><th>Date</th><th>Statut</th><th>Action</th></tr></thead>
+    <tbody>
+      <ng-container *ngFor="let bc of bons">
+        <tr>
+          <td>{{bc.id}}</td>
+          <td>{{bc.fournisseur.nom}}</td>
+          <td>{{bc.dateCreation | date}}</td>
+          <td><strong>{{bc.statut}}</strong></td>
+          <td>
+            <div class="row-actions" *ngIf="bc.statut === 'EN_ATTENTE'">
+              <button class="btn btn-sm btn-outline" (click)="ouvrirLigneModal(bc.id || 0)">+ Ajouter ligne</button>
+              <button class="btn btn-sm btn-success" (click)="recevoir(bc.id || 0)">✓ Marquer Reçu</button>
+            </div>
+            <span *ngIf="bc.statut !== 'EN_ATTENTE'">—</span>
+          </td>
+        </tr>
+      </ng-container>
+    </tbody>
+  </table>
+</div>
+
+<div class="modal-backdrop" *ngIf="isCreateModalOpen" (click)="fermerCreateModal()"></div>
+<div class="modal-dialog glass-card" *ngIf="isCreateModalOpen">
+  <div class="modal-header">
+    <h2>Créer un nouveau bon</h2>
+    <span class="close-btn" (click)="fermerCreateModal()">&times;</span>
+  </div>
+  <div class="modal-content">
+    <select class="form-control" [(ngModel)]="nouveauBcFournisseurId">
+      <option value="0">-- Choisir un fournisseur --</option>
+      <option *ngFor="let f of fournisseurs" [value]="f.id">{{f.nom}}</option>
+    </select>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" (click)="fermerCreateModal()">Annuler</button>
+    <button class="btn btn-primary" (click)="creerBon()" [disabled]="isSaving">
+        <span *ngIf="isSaving">⏳...</span>
+        <span *ngIf="!isSaving">Créer Bon</span>
+    </button>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="isLigneModalOpen" (click)="fermerLigneModal()"></div>
+<div class="modal-dialog glass-card" *ngIf="isLigneModalOpen && selectedBcId">
+  <div class="modal-header">
+    <h2>Ajouter une ligne au bon #{{ selectedBcId }}</h2>
+    <span class="close-btn" (click)="fermerLigneModal()">&times;</span>
+  </div>
+  <div class="modal-content">
+    <div class="ligne-fields">
+      <div class="form-group">
+        <label class="form-label">Produit</label>
+        <select class="form-control" [(ngModel)]="ligneForms[selectedBcId].produitId">
+          <option [value]="0">-- Choisir un produit --</option>
+          <option *ngFor="let p of produits" [value]="p.id">{{ p.nom }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantité</label>
+        <input class="form-control" type="number" min="1" [(ngModel)]="ligneForms[selectedBcId].quantite">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prix d'achat</label>
+        <input class="form-control" type="number" min="0.01" step="0.01" [(ngModel)]="ligneForms[selectedBcId].prixAchat">
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" (click)="fermerLigneModal()">Annuler</button>
+    <button class="btn btn-primary" (click)="ajouterLigne(selectedBcId)" [disabled]="isSaving">
+        <span *ngIf="isSaving">⏳...</span>
+        <span *ngIf="!isSaving">Ajouter la ligne</span>
+    </button>
+  </div>
+</div>

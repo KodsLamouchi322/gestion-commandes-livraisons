@@ -1,0 +1,46 @@
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Avis Clients ⭐</h1>
+        <p>Consultez et modérez les notes et commentaires</p>
+    </div>
+</div>
+
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">Chargement des avis...</div>
+
+<div *ngIf="!isLoading" class="glass-card table-container">
+    <div class="table-tools" *ngIf="avis.length > 0">
+        <input class="form-control" [(ngModel)]="search" (ngModelChange)="onSearchChange()" placeholder="Rechercher par ID, client ou produit..." aria-label="Rechercher un avis">
+    </div>
+
+    <div class="empty-state" *ngIf="filteredAvis.length===0">
+        <div class="empty-icon">💬</div><h3>Aucun avis</h3>
+    </div>
+    <table class="modern-table" *ngIf="filteredAvis.length>0">
+        <thead>
+            <tr><th>Client</th><th>Produit</th><th>Note</th><th>Commentaire</th><th>Date</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let a of paginatedAvis">
+                <td><strong>{{ a.client?.nom }}</strong><br><small>{{ a.client?.email }}</small></td>
+                <td>{{ a.produit?.nom }}</td>
+                <td>
+                    <span style="color:#f59e0b;font-size:1.1rem">
+                        <span *ngFor="let e of etoiles(a.note)">{{ e }}</span>
+                    </span>
+                    <small>({{ a.note }}/5)</small>
+                </td>
+                <td>{{ a.commentaire || '—' }}</td>
+                <td>{{ (a.dateAvis || a.date) | date:'shortDate' }}</td>
+                <td>
+                    <button type="button" class="btn-icon btn-delete" (click)="supprimer(a.id)" title="Supprimer" [attr.aria-label]="&quot;Supprimer l'avis &quot; + a.id">🗑️</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="pagination" *ngIf="filteredAvis.length > pageSize">
+        <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage - 1)" [disabled]="currentPage === 1" aria-label="Page précédente">Précédent</button>
+        <span>Page {{ currentPage }} / {{ totalPages }}</span>
+        <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage + 1)" [disabled]="currentPage === totalPages" aria-label="Page suivante">Suivant</button>
+    </div>
+</div>

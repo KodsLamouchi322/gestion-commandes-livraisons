@@ -1,0 +1,95 @@
+<div class="page-header">
+    <div>
+        <h1>Produits & Stocks 📦</h1>
+        <p>Gérez le catalogue, les images et les stocks</p>
+    </div>
+    <button class="btn btn-primary" (click)="ouvrir()">+ Nouveau Produit</button>
+</div>
+
+<div *ngIf="isLoading" class="loader">Chargement...</div>
+
+<div *ngIf="!isLoading" class="glass-card table-container">
+    <div class="empty-state" *ngIf="produits.length===0">
+        <div class="empty-icon">📭</div><h3>Aucun produit</h3>
+    </div>
+    <table class="modern-table" *ngIf="produits.length>0">
+        <thead>
+            <tr><th>Image</th><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Stock</th><th>Note</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let p of produits">
+                <td>
+                    <img *ngIf="p.imageUrl" [src]="p.imageUrl" style="width:50px;height:50px;object-fit:cover;border-radius:6px" [alt]="p.nom">
+                    <span *ngIf="!p.imageUrl">📦</span>
+                </td>
+                <td><strong>{{ p.nom }}</strong><br><small class="text-muted">{{ p.description | slice:0:50 }}</small></td>
+                <td>{{ getCatNom(p) }}</td>
+                <td>{{ p.prixUnitaire | currency:'EUR':'symbol' }}</td>
+                <td>
+                    <span [style.color]="p.quantiteEnStock > 0 ? 'var(--success)' : 'var(--danger)'">
+                        {{ p.quantiteEnStock }}
+                    </span>
+                </td>
+                <td>
+                    <span *ngIf="p.noteMoyenne">⭐ {{ p.noteMoyenne }}/5</span>
+                    <span *ngIf="!p.noteMoyenne" class="text-muted">—</span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-outline btn-sm" (click)="ouvrir(p)">✏️ Modifier</button>
+                        <button class="btn-icon btn-delete" (click)="supprimer(p.id)">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- MODAL -->
+<div class="modal-backdrop" *ngIf="isModalOpen" (click)="fermer()"></div>
+<div class="modal-dialog glass-card" *ngIf="isModalOpen">
+    <div class="modal-header">
+        <h2>{{ editMode ? 'Modifier' : 'Nouveau' }} Produit</h2>
+        <span class="close-btn" (click)="fermer()">&times;</span>
+    </div>
+    <div class="modal-content">
+        <div class="form-group">
+            <label class="form-label">Nom *</label>
+            <input class="form-control" [(ngModel)]="current.nom" placeholder="Nom du produit">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" [(ngModel)]="current.description" rows="3" placeholder="Description détaillée..."></textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Prix (€) *</label>
+                <input type="number" class="form-control" [(ngModel)]="current.prixUnitaire" min="0">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Stock initial</label>
+                <input type="number" class="form-control" [(ngModel)]="current.quantiteEnStock" min="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Catégorie</label>
+            <select class="form-control" [(ngModel)]="current.categorie">
+                <option [ngValue]="undefined">— Sans catégorie —</option>
+                <option *ngFor="let c of categories" [ngValue]="c">{{ c.nom }}</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Image du produit</label>
+            <input type="file" class="form-control" accept="image/*" (change)="onFileChange($event)">
+            <small class="text-muted" *ngIf="selectedFile">Fichier sélectionné : {{ selectedFile.name }}</small>
+            <img *ngIf="current.imageUrl && !selectedFile" [src]="current.imageUrl" style="max-height:100px;margin-top:8px;border-radius:6px" alt="aperçu">
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-outline" (click)="fermer()">Annuler</button>
+        <button class="btn btn-primary" (click)="sauvegarder()" [disabled]="isSaving">
+            <span *ngIf="isSaving">⏳ En cours...</span>
+            <span *ngIf="!isSaving">Enregistrer</span>
+        </button>
+    </div>
+</div>
