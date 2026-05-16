@@ -1,0 +1,51 @@
+<aside class="admin-drawer" *ngIf="auth.isAuthenticated() && auth.isAdmin()">
+    <a routerLink="/admin/dashboard" routerLinkActive="active" class="drawer-link" title="Dashboard">
+        <span class="drawer-icon">📊</span><span class="drawer-label">Dashboard</span>
+    </a>
+    <a routerLink="/admin/commandes" routerLinkActive="active" class="drawer-link" title="Commandes">
+        <span class="drawer-icon">📦</span><span class="drawer-label">Commandes</span>
+    </a>
+    <a routerLink="/admin/clients" routerLinkActive="active" class="drawer-link" title="Clients">
+        <span class="drawer-icon">👥</span><span class="drawer-label">Clients</span>
+    </a>
+    <a routerLink="/admin/livraisons" routerLinkActive="active" class="drawer-link" title="Livraisons">
+        <span class="drawer-icon">🚚</span><span class="drawer-label">Livraisons</span>
+    </a>
+    <a routerLink="/admin/transporteurs" routerLinkActive="active" class="drawer-link" title="Transporteurs">
+        <span class="drawer-icon">🛻</span><span class="drawer-label">Transporteurs</span>
+    </a>
+    <a routerLink="/admin/paiements" routerLinkActive="active" class="drawer-link" title="Paiements">
+        <span class="drawer-icon">💳</span><span class="drawer-label">Paiements</span>
+    </a>
+    <a routerLink="/admin/produits" routerLinkActive="active" class="drawer-link" title="Produits">
+        <span class="drawer-icon">🛍️</span><span class="drawer-label">Produits</span>
+    </a>
+    <a routerLink="/admin/categories" routerLinkActive="active" class="drawer-link" title="Catégories">
+        <span class="drawer-icon">🏷️</span><span class="drawer-label">Catégories</span>
+    </a>
+    <a routerLink="/admin/fournisseurs" routerLinkActive="active" class="drawer-link" title="Fournisseurs">
+        <span class="drawer-icon">🏢</span><span class="drawer-label">Fournisseurs</span>
+    </a>
+    <a routerLink="/admin/bons-commande" routerLinkActive="active" class="drawer-link" title="Bons de commande">
+        <span class="drawer-icon">📜</span><span class="drawer-label">Bons commande</span>
+    </a>
+    <a routerLink="/admin/avis" routerLinkActive="active" class="drawer-link" title="Avis">
+        <span class="drawer-icon">⭐</span><span class="drawer-label">Avis</span>
+    </a>
+</aside>
+
+<nav class="topbar">
+    <div class="topbar-inner">
+        <a routerLink="/" class="nav-logo">
+            <div class="logo-icon">📦</div>
+            <span class="logo-text">LogiTrack</span>
+        </a>
+
+        <div class="topbar-actions">
+            <a *ngIf="!auth.isAuthenticated()" routerLink="/auth/login" class="btn btn-outline">Connexion</a>
+            <a *ngIf="!auth.isAuthenticated()" routerLink="/auth/register" class="btn btn-primary">Inscription</a>
+            <button *ngIf="auth.isAuthenticated()" type="button" class="btn btn-outline" (click)="goToProfile()">Profil</button>
+            <button *ngIf="auth.isAuthenticated()" type="button" class="btn btn-outline" (click)="logout()">Déconnexion</button>
+        </div>
+    </div>
+</nav>

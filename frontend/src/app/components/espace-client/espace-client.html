@@ -1,0 +1,261 @@
+<div class="page-header">
+    <div>
+        <h1>Mon Espace Client 👤</h1>
+        <p *ngIf="auth.currentUser">Bonjour, <strong>{{ profil.nom || auth.currentUser.email }}</strong></p>
+    </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar" role="tablist" aria-label="Navigation espace client">
+    <button type="button" class="tab-btn" [class.active]="activeTab==='catalogue'" (click)="activeTab='catalogue'" role="tab" [attr.aria-selected]="activeTab==='catalogue'" aria-label="Ouvrir l'onglet catalogue"><span class="tab-icon">🛍️</span><span class="tab-label">Catalogue</span></button>
+    <button type="button" class="tab-btn" [class.active]="activeTab==='panier'" (click)="activeTab='panier'" role="tab" [attr.aria-selected]="activeTab==='panier'" aria-label="Ouvrir l'onglet panier">
+        <span class="tab-icon">🛒</span><span class="tab-label">Panier</span> <span class="badge-count" *ngIf="panierCount>0">{{ panierCount }}</span>
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeTab==='favoris'" (click)="activeTab='favoris'" role="tab" [attr.aria-selected]="activeTab==='favoris'" aria-label="Ouvrir l'onglet favoris"><span class="tab-icon">❤️</span><span class="tab-label">Favoris</span> <span class="badge-count" *ngIf="favoris.count>0">{{ favoris.count }}</span></button>
+    <button type="button" class="tab-btn" [class.active]="activeTab==='commandes'" (click)="activeTab='commandes'" role="tab" [attr.aria-selected]="activeTab==='commandes'" aria-label="Ouvrir l'onglet commandes"><span class="tab-icon">📦</span><span class="tab-label">Mes Commandes</span></button>
+    <button type="button" class="tab-btn" [class.active]="activeTab==='profil'" (click)="activeTab='profil'" role="tab" [attr.aria-selected]="activeTab==='profil'" aria-label="Ouvrir l'onglet profil"><span class="tab-icon">⚙️</span><span class="tab-label">Profil</span></button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- CATALOGUE -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div *ngIf="activeTab==='catalogue'">
+    <div class="search-bar glass-card">
+        <input class="form-control" [(ngModel)]="recherche" (ngModelChange)="filtrer()" placeholder="🔍 Rechercher un produit..." aria-label="Rechercher un produit">
+        <select class="form-control" [(ngModel)]="categorieFiltre" (ngModelChange)="filtrer()" aria-label="Filtrer par catégorie">
+            <option [ngValue]="undefined">Toutes les catégories</option>
+            <option *ngFor="let c of categories" [value]="c.id">{{ c.nom }}</option>
+        </select>
+    </div>
+
+    <div class="produits-grid" *ngIf="produits.length > 0">
+        <div class="produit-card glass-card" *ngFor="let p of produits">
+            <div class="produit-img-wrap" (click)="ouvrirDetail(p)">
+                <img *ngIf="p.imageUrl" [src]="p.imageUrl" [alt]="p.nom" class="produit-img">
+                <div *ngIf="!p.imageUrl" class="produit-img-placeholder">📦</div>
+            </div>
+            <div class="produit-info">
+                <div class="produit-categorie" *ngIf="p.categorie">{{ p.categorie.nom }}</div>
+                <h3 class="produit-nom" (click)="ouvrirDetail(p)">{{ p.nom }}</h3>
+                <p class="produit-desc">{{ p.description | slice:0:80 }}{{ (p.description?.length || 0) > 80 ? '...' : '' }}</p>
+                <div class="produit-note" *ngIf="p.noteMoyenne">
+                    <span *ngFor="let e of etoiles(p.noteMoyenne)">{{ e }}</span>
+                    <small>({{ p.noteMoyenne }}/5)</small>
+                </div>
+                <div class="produit-footer">
+                    <strong class="produit-prix">{{ p.prixUnitaire | currency:'EUR':'symbol' }}</strong>
+                    <div class="produit-actions">
+                        <button class="btn-icon" (click)="toggleFavori(p)" [title]="favoris.isFavori(p.id!) ? 'Retirer des favoris' : 'Ajouter aux favoris'">
+                            {{ favoris.isFavori(p.id!) ? '❤️' : '🤍' }}
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" (click)="ajouterAuPanier(p)" [disabled]="p.quantiteEnStock === 0 || isPanierBusy" [attr.aria-label]="'Ajouter ' + p.nom + ' au panier'">
+                            {{ p.quantiteEnStock === 0 ? 'Rupture' : '🛒 Ajouter' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p *ngIf="produits.length === 0" class="text-center text-muted p-4">Aucun produit trouvé.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PANIER -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div *ngIf="activeTab==='panier'" class="glass-card">
+    <h2>🛒 Mon Panier</h2>
+    <div *ngIf="panier.lignes.length === 0" class="text-center text-muted p-4">Votre panier est vide.</div>
+    <div *ngIf="panier.lignes.length > 0">
+        <div class="panier-ligne" *ngFor="let l of panier.lignes">
+            <img *ngIf="l.produit.imageUrl" [src]="l.produit.imageUrl" class="panier-img" [alt]="l.produit.nom">
+            <div *ngIf="!l.produit.imageUrl" class="panier-img-placeholder">📦</div>
+            <div class="panier-info">
+                <strong>{{ l.produit.nom }}</strong>
+                <span>{{ l.produit.prixUnitaire | currency:'EUR':'symbol' }} / unité</span>
+            </div>
+            <div class="panier-qte">
+                <button class="btn-qte" (click)="modifierQte(l, -1)" [disabled]="isPanierBusy">−</button>
+                <span>{{ l.quantite }}</span>
+                <button class="btn-qte" (click)="modifierQte(l, 1)" [disabled]="isPanierBusy">+</button>
+            </div>
+            <strong>{{ l.produit.prixUnitaire * l.quantite | currency:'EUR':'symbol' }}</strong>
+            <button type="button" class="btn-icon" (click)="supprimerLigne(l)" [disabled]="isPanierBusy" [attr.aria-label]="'Supprimer ' + l.produit.nom + ' du panier'">🗑️</button>
+        </div>
+        <div class="panier-total">
+            <strong>Total : {{ totalPanier() | currency:'EUR':'symbol' }}</strong>
+        </div>
+        <div class="panier-actions">
+            <button type="button" class="btn btn-outline" (click)="viderPanier()" [disabled]="isPanierBusy || panier.lignes.length===0">Vider le panier</button>
+            <button type="button" class="btn btn-primary" (click)="commander()" [disabled]="isPanierBusy || panier.lignes.length===0">
+                {{ isPanierBusy ? '⏳ Finalisation...' : '✅ Passer la commande' }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- FAVORIS -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div *ngIf="activeTab==='favoris'">
+    <h2>❤️ Mes Favoris</h2>
+    <div *ngIf="produitsFavoris.length === 0" class="text-center text-muted p-4">Aucun favori enregistré.</div>
+    <div class="produits-grid" *ngIf="produitsFavoris.length > 0">
+        <div class="produit-card glass-card" *ngFor="let p of produitsFavoris">
+            <div class="produit-img-wrap">
+                <img *ngIf="p.imageUrl" [src]="p.imageUrl" [alt]="p.nom" class="produit-img">
+                <div *ngIf="!p.imageUrl" class="produit-img-placeholder">📦</div>
+            </div>
+            <div class="produit-info">
+                <h3>{{ p.nom }}</h3>
+                <strong class="produit-prix">{{ p.prixUnitaire | currency:'EUR':'symbol' }}</strong>
+                <div class="produit-actions mt-2">
+                    <button class="btn-icon" (click)="toggleFavori(p)">❤️</button>
+                    <button type="button" class="btn btn-primary btn-sm" (click)="ajouterAuPanier(p)" [disabled]="p.quantiteEnStock===0 || isPanierBusy" [attr.aria-label]="'Ajouter ' + p.nom + ' au panier'">🛒 Ajouter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- COMMANDES -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div *ngIf="activeTab==='commandes'" class="glass-card table-container">
+    <h2>📦 Mes Commandes</h2>
+    <p *ngIf="mesCommandes.length===0" class="text-center text-muted p-3">Aucune commande.</p>
+    <table class="modern-table" *ngIf="mesCommandes.length>0">
+        <thead><tr><th>N°</th><th>Montant</th><th>Statut</th><th>Action</th></tr></thead>
+        <tbody>
+            <tr *ngFor="let c of mesCommandes">
+                <td><strong>#{{ c.id }}</strong></td>
+                <td>{{ c.montantTotal | currency:'EUR':'symbol' }}</td>
+                <td><span [ngClass]="getBadgeCmd(c.statut)">{{ c.statut }}</span></td>
+                <td>
+                    <button type="button" class="btn btn-success btn-sm"
+                        *ngIf="c.statut==='EN_ATTENTE' || c.statut==='VALIDEE'"
+                        [attr.aria-label]="'Payer la commande ' + c.id"
+                        (click)="initierPaiement(c)">💳 Payer</button>
+                    <span class="text-muted" *ngIf="c.statut!=='EN_ATTENTE' && c.statut!=='VALIDEE'">—</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PROFIL -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div *ngIf="activeTab==='profil'" class="glass-card" style="max-width:500px">
+    <h2>⚙️ Mon Profil</h2>
+    <div class="form-group">
+        <label class="form-label">Nom</label>
+        <input class="form-control" [(ngModel)]="profil.nom">
+    </div>
+    <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-control" [(ngModel)]="profil.email" type="email">
+    </div>
+    <div class="form-group">
+        <label class="form-label">Adresse</label>
+        <input class="form-control" [(ngModel)]="profil.adresse">
+    </div>
+    <div class="form-group">
+        <label class="form-label">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
+        <input class="form-control" [(ngModel)]="nouveauMdp" type="password" placeholder="••••••">
+    </div>
+    <button type="button" class="btn btn-primary" (click)="sauvegarderProfil()">Enregistrer les modifications</button>
+    <p *ngIf="profilMsg" class="mt-2" style="color:var(--success)">{{ profilMsg }}</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- MODAL DETAIL PRODUIT -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" *ngIf="produitDetail" (click)="fermerDetail()"></div>
+<div class="modal-dialog glass-card modal-large" *ngIf="produitDetail" role="dialog" aria-modal="true" [attr.aria-label]="'Détails du produit ' + produitDetail.nom">
+    <div class="modal-header">
+        <h2>{{ produitDetail.nom }}</h2>
+        <button type="button" class="close-btn" (click)="fermerDetail()" aria-label="Fermer les détails du produit">&times;</button>
+    </div>
+    <div class="modal-content detail-content">
+        <div class="detail-img-wrap">
+            <img *ngIf="produitDetail.imageUrl" [src]="produitDetail.imageUrl" [alt]="produitDetail.nom" class="detail-img">
+            <div *ngIf="!produitDetail.imageUrl" class="produit-img-placeholder large">📦</div>
+        </div>
+        <div class="detail-info">
+            <div class="produit-categorie" *ngIf="produitDetail.categorie">{{ produitDetail.categorie.nom }}</div>
+            <p class="detail-desc">{{ produitDetail.description }}</p>
+            <div class="detail-note" *ngIf="produitDetail.noteMoyenne">
+                <span *ngFor="let e of etoiles(produitDetail.noteMoyenne)">{{ e }}</span>
+                <small>{{ produitDetail.noteMoyenne }}/5 ({{ avisDetail.length }} avis)</small>
+            </div>
+            <h2 class="detail-prix">{{ produitDetail.prixUnitaire | currency:'EUR':'symbol' }}</h2>
+            <p class="stock-info" [style.color]="produitDetail.quantiteEnStock > 0 ? 'var(--success)' : 'var(--danger)'">
+                {{ produitDetail.quantiteEnStock > 0 ? '✅ En stock (' + produitDetail.quantiteEnStock + ')' : '❌ Rupture de stock' }}
+            </p>
+            <div class="detail-actions">
+                <button class="btn-icon" (click)="toggleFavori(produitDetail)">
+                    {{ favoris.isFavori(produitDetail.id!) ? '❤️' : '🤍' }} Favoris
+                </button>
+                <button type="button" class="btn btn-primary" (click)="ajouterAuPanier(produitDetail)" [disabled]="produitDetail.quantiteEnStock===0 || isPanierBusy" [attr.aria-label]="'Ajouter ' + produitDetail.nom + ' au panier'">
+                    🛒 Ajouter au panier
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avis -->
+    <div class="avis-section">
+        <h3>Avis clients ({{ avisDetail.length }})</h3>
+        <div class="avis-liste" *ngIf="avisDetail.length > 0">
+            <div class="avis-item" *ngFor="let a of avisDetail">
+                <div class="avis-header">
+                    <strong>{{ a.client?.nom }}</strong>
+                    <span class="avis-note"><span *ngFor="let e of etoiles(a.note)">{{ e }}</span></span>
+                    <small class="text-muted">{{ (a.dateAvis || a.date) | date:'shortDate' }}</small>
+                </div>
+                <p>{{ a.commentaire }}</p>
+            </div>
+        </div>
+        <p *ngIf="avisDetail.length===0" class="text-muted">Aucun avis pour ce produit.</p>
+
+        <!-- Poster un avis -->
+        <div class="poster-avis">
+            <h4>Laisser un avis</h4>
+            <div class="note-selector">
+                <span *ngFor="let n of [1,2,3,4,5]"
+                      class="etoile-select"
+                      [class.active]="monAvisNote >= n"
+                      (click)="monAvisNote = n">★</span>
+                <small>{{ monAvisNote }}/5</small>
+            </div>
+            <textarea class="form-control mt-2" [(ngModel)]="monAvisCommentaire" rows="3" placeholder="Votre commentaire..." aria-label="Commentaire de votre avis"></textarea>
+            <button type="button" class="btn btn-primary mt-2" (click)="posterAvis()">Publier mon avis</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PAIEMENT -->
+<div class="modal-backdrop" *ngIf="commandeAPayer" (click)="commandeAPayer=undefined"></div>
+<div class="modal-dialog glass-card" *ngIf="commandeAPayer" role="dialog" aria-modal="true" [attr.aria-label]="'Paiement de la commande ' + commandeAPayer.id">
+    <div class="modal-header">
+        <h2>Paiement commande #{{ commandeAPayer.id }}</h2>
+        <button type="button" class="close-btn" (click)="commandeAPayer=undefined" aria-label="Fermer la fenêtre de paiement">&times;</button>
+    </div>
+    <div class="modal-content">
+        <h3>Total : {{ commandeAPayer.montantTotal | currency:'EUR':'symbol' }}</h3>
+        <div class="form-group mt-3">
+            <label class="form-label">Moyen de paiement</label>
+            <select class="form-control" [(ngModel)]="modePaiement" aria-label="Sélectionner le mode de paiement">
+                <option value="CARTE">💳 Carte bancaire</option>
+                <option value="ESPECES">Espèces</option>
+                <option value="VIREMENT">Virement</option>
+            </select>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline" (click)="commandeAPayer=undefined">Annuler</button>
+        <button type="button" class="btn btn-success" (click)="payerEnLigne()" [disabled]="isPaiementBusy">
+            {{ isPaiementBusy ? '⏳ Paiement...' : 'Confirmer le paiement' }}
+        </button>
+    </div>
+</div>
