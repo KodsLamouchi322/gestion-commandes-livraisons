@@ -22,15 +22,28 @@ export class PaiementSuccess implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Afficher directement le succès sans vérifier avec le backend
-    // car l'endpoint verifyStripeSession n'existe pas
-    this.loading = false;
-    this.paiement = {
-      montant: 0,
-      methodePaiement: 'CARTE',
-      statut: 'VALIDE'
-    };
-    this.notif.success('Paiement effectué avec succès !');
+    const sessionId = this.route.snapshot.queryParamMap.get('session_id');
+    
+    if (!sessionId) {
+      this.error = true;
+      this.loading = false;
+      this.notif.error('ID de session introuvable.');
+      return;
+    }
+
+    this.api.verifyStripeSession(sessionId).subscribe({
+      next: (paiement) => {
+        this.paiement = paiement;
+        this.loading = false;
+        this.notif.success('Paiement validé avec succès !');
+      },
+      error: (err) => {
+        console.error('Erreur vérification:', err);
+        this.error = true;
+        this.loading = false;
+        this.notif.error('Le paiement n\'a pas pu être validé.');
+      }
+    });
   }
 
   goToCommandes(): void {
