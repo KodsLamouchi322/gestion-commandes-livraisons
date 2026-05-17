@@ -54,7 +54,7 @@ public class Commande {
 
     // Relation OneToOne : Une commande a un paiement
     @JsonIgnore
-    @OneToOne(mappedBy = "commande", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "commande")
     private Paiement paiement;
 
     // Relation OneToOne : Une commande a une livraison

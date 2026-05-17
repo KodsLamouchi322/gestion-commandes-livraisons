@@ -25,6 +25,9 @@ public class CommandeDTO {
     // Lignes de commande
     private List<LigneCommandeDTO> lignesCommande;
 
+    // Informations de paiement (si existe)
+    private PaiementDTO paiement;
+
     // ======= Getters & Setters =======
 
     public Integer getId() { return id; }
@@ -53,4 +56,7 @@ public class CommandeDTO {
 
     public List<LigneCommandeDTO> getLignesCommande() { return lignesCommande; }
     public void setLignesCommande(List<LigneCommandeDTO> lignesCommande) { this.lignesCommande = lignesCommande; }
+
+    public PaiementDTO getPaiement() { return paiement; }
+    public void setPaiement(PaiementDTO paiement) { this.paiement = paiement; }
 }

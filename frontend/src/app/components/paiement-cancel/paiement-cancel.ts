@@ -43,6 +43,6 @@ export class PaiementCancel implements OnInit {
   }
 
   goToCommandes(): void {
-    this.router.navigate(['/espace-client']);
+    this.router.navigate(['/client/espace']);
   }
 }

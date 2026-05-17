@@ -1,35 +1,47 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 import { BonCommande, Fournisseur, Produit, LigneBonCommande } from '../../models/models';
 
-@Component({ selector: 'app-bons-commande', templateUrl: './bons-commande.html', styleUrls: ['./bons-commande.css'], standalone: false })
+@Component({ 
+  selector: 'app-bons-commande', 
+  templateUrl: './bons-commande.html', 
+  styleUrls: ['./bons-commande.css'], 
+  standalone: false 
+})
 export class BonsCommande implements OnInit {
   bons: BonCommande[] = [];
   fournisseurs: Fournisseur[] = [];
   produits: Produit[] = [];
   
-  nouveauBcFournisseurId: number = 0;
-  ligneForms: Record<number, { produitId: number; quantite: number; prixAchat: number }> = {};
+  // Pour la création de bon de commande
   isCreateModalOpen = false;
-  isLigneModalOpen = false;
-  selectedBcId: number | null = null;
-  isSaving = false;
+  nouveauBcFournisseurId: number = 0;
+  lignesNouveau: Array<{ produitId: number; quantite: number; prixAchat: number }> = [];
+  
   isLoading = true;
+  processingBonId?: number;
   
   constructor(
     private api: ApiService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private cdr: ChangeDetectorRef
   ) {}
   
   ngOnInit() {
     this.charger();
     this.api.getFournisseurs().subscribe({
-      next: (f) => this.fournisseurs = f,
+      next: (f) => {
+        this.fournisseurs = f;
+        this.cdr.detectChanges();
+      },
       error: () => this.notificationService.error('Erreur chargement fournisseurs')
     });
     this.api.getProduits().subscribe({
-      next: (p) => this.produits = p,
+      next: (p) => {
+        this.produits = p;
+        this.cdr.detectChanges();
+      },
       error: () => this.notificationService.error('Erreur chargement produits')
     });
   }
@@ -40,95 +52,162 @@ export class BonsCommande implements OnInit {
       next: (res) => {
         this.bons = res;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.notificationService.error('Erreur lors du chargement des bons de commande');
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
+  }
+
+  getBadgeClass(statut: string | undefined): string {
+    switch (statut) {
+      case 'EN_ATTENTE': return 'badge badge-warning';
+      case 'ENVOYE': return 'badge badge-info';
+      case 'RECU': return 'badge badge-success';
+      case 'ANNULE': return 'badge badge-error';
+      default: return 'badge';
+    }
   }
 
   ouvrirCreateModal(): void {
     this.isCreateModalOpen = true;
-    this.isSaving = false;
+    this.nouveauBcFournisseurId = 0;
+    this.lignesNouveau = [{ produitId: 0, quantite: 1, prixAchat: 0 }];
   }
 
   fermerCreateModal(): void {
     this.isCreateModalOpen = false;
-    this.isSaving = false;
     this.nouveauBcFournisseurId = 0;
+    this.lignesNouveau = [];
   }
 
-  ouvrirLigneModal(bcId: number): void {
-    this.selectedBcId = bcId;
-    if (!this.ligneForms[bcId]) {
-      this.ligneForms[bcId] = { produitId: 0, quantite: 1, prixAchat: 0 };
-    }
-    this.isLigneModalOpen = true;
-    this.isSaving = false;
+  ajouterLigneNouveau(): void {
+    this.lignesNouveau.push({ produitId: 0, quantite: 1, prixAchat: 0 });
   }
 
-  fermerLigneModal(): void {
-    this.isLigneModalOpen = false;
-    this.selectedBcId = null;
-    this.isSaving = false;
+  supprimerLigneNouveau(index: number): void {
+    this.lignesNouveau.splice(index, 1);
+  }
+
+  calculerMontantTotal(): number {
+    return this.lignesNouveau.reduce((total, ligne) => {
+      return total + (ligne.quantite * ligne.prixAchat);
+    }, 0);
   }
   
   creerBon() {
-    if (this.isSaving) return;
-    if (!this.nouveauBcFournisseurId) return;
-    this.isSaving = true;
-    this.api.createBonCommande({ fournisseur: { id: this.nouveauBcFournisseurId } } as any).subscribe({
+    if (!this.nouveauBcFournisseurId) {
+      this.notificationService.error('Veuillez sélectionner un fournisseur');
+      return;
+    }
+
+    if (this.lignesNouveau.length === 0) {
+      this.notificationService.error('Veuillez ajouter au moins une ligne');
+      return;
+    }
+
+    // Valider les lignes
+    for (const ligne of this.lignesNouveau) {
+      if (!ligne.produitId || ligne.quantite <= 0 || ligne.prixAchat <= 0) {
+        this.notificationService.error('Toutes les lignes doivent avoir un produit, une quantité et un prix valides');
+        return;
+      }
+    }
+
+    const request = {
+      bonCommande: {
+        fournisseur: { id: this.nouveauBcFournisseurId }
+      },
+      lignes: this.lignesNouveau.map(l => ({
+        produit: { id: l.produitId },
+        quantite: l.quantite,
+        prixAchat: l.prixAchat
+      }))
+    };
+
+    this.api.creerBonCommande(request).subscribe({
       next: () => {
         this.notificationService.success('Bon de commande créé !');
         this.charger();
         this.fermerCreateModal();
+        this.cdr.detectChanges();
       },
-      error: () => {
-        this.notificationService.error('Erreur lors de la création');
-        this.isSaving = false;
+      error: (err) => {
+        const msg = err?.error?.message || 'Erreur lors de la création';
+        this.notificationService.error(msg);
+        this.cdr.detectChanges();
       }
     });
   }
-  
-  ajouterLigne(bcId: number) {
-    if (this.isSaving) return;
-    const form = this.ligneForms[bcId] || { produitId: 0, quantite: 1, prixAchat: 0 };
-    if (!form.produitId || form.quantite < 1 || form.prixAchat <= 0) {
-      this.notificationService.warning('Veuillez renseigner un produit, une quantité et un prix valides.');
-      return;
-    }
 
-    const nouvelleLigne: LigneBonCommande = {
-      produit: { id: form.produitId } as any,
-      quantite: form.quantite,
-      prixAchat: form.prixAchat
-    };
-
-    this.isSaving = true;
-    this.api.addLigneBonCommande(bcId, nouvelleLigne).subscribe({
+  envoyer(id: number | undefined) {
+    if (!id || this.processingBonId) return;
+    this.processingBonId = id;
+    this.api.envoyerBonCommande(id).subscribe({
       next: () => {
-        this.notificationService.success('Ligne ajoutée !');
-        this.ligneForms[bcId] = { produitId: 0, quantite: 1, prixAchat: 0 };
+        this.notificationService.success('Bon de commande envoyé au fournisseur !');
+        this.processingBonId = undefined;
         this.charger();
-        this.fermerLigneModal();
+        this.cdr.detectChanges();
       },
-      error: () => {
-        this.notificationService.error('Erreur lors de l\'ajout');
-        this.isSaving = false;
+      error: (err) => {
+        const msg = err?.error?.message || 'Erreur lors de l\'envoi';
+        this.notificationService.error(msg);
+        this.processingBonId = undefined;
+        this.cdr.detectChanges();
       }
     });
   }
-  
-  recevoir(bcId: number) {
-    this.api.receptionnerBonCommande(bcId).subscribe({
+
+  recevoir(id: number | undefined) {
+    if (!id || this.processingBonId) return;
+    this.processingBonId = id;
+    this.api.recevoirBonCommande(id).subscribe({
       next: () => {
         this.notificationService.success('Bon réceptionné ! Stocks mis à jour.');
+        this.processingBonId = undefined;
         this.charger();
+        this.cdr.detectChanges();
       },
-      error: () => {
-        this.notificationService.error('Erreur lors de la réception');
+      error: (err) => {
+        const msg = err?.error?.message || 'Erreur lors de la réception';
+        this.notificationService.error(msg);
+        this.processingBonId = undefined;
+        this.cdr.detectChanges();
       }
     });
+  }
+
+  annuler(id: number | undefined) {
+    if (!id || this.processingBonId) return;
+    this.processingBonId = id;
+    this.api.annulerBonCommande(id).subscribe({
+      next: () => {
+        this.notificationService.success('Bon de commande annulé !');
+        this.processingBonId = undefined;
+        this.charger();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        const msg = err?.error?.message || 'Erreur lors de l\'annulation';
+        this.notificationService.error(msg);
+        this.processingBonId = undefined;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  getFournisseurNom(fournisseurId: number | undefined): string {
+    if (!fournisseurId) return '—';
+    const fournisseur = this.fournisseurs.find(f => f.id === fournisseurId);
+    return fournisseur?.nom || '—';
+  }
+
+  getProduitNom(produitId: number): string {
+    const produit = this.produits.find(p => p.id === produitId);
+    return produit?.nom || '—';
   }
 }

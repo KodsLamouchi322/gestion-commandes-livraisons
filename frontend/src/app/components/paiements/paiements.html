@@ -30,15 +30,17 @@
         <tbody>
             <tr *ngFor="let p of paiements">
                 <td><strong>#TX-{{ p.id }}</strong></td>
-                <td>CMD-{{ p.commande?.id }}</td>
-                <td>{{ p.methodePaiement }}</td>
-                <td>{{ (p.datePaiement || p.date) | date:'short' }}</td>
+                <td>CMD-{{ p.commandeId }}</td>
+                <td>{{ p.methodePaiement }}
+                    <span *ngIf="estEspecesEnAttente(p)" class="badge badge-info" style="margin-left: 8px;">💵 À la livraison</span>
+                </td>
+                <td>{{ p.datePaiement | date:'short' }}</td>
                 <td>
                     <span [ngClass]="getBadgeClass(p.statut)">{{ p.statut }}</span>
                 </td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-primary btn-sm" *ngIf="p.statut === 'EN_ATTENTE'"
+                        <button class="btn btn-primary btn-sm" *ngIf="peutConfirmer(p)"
                             [attr.aria-label]="'Confirmer le paiement ' + p.id"
                             (click)="confirmerPaiement(p.id)" [disabled]="processingPaiementId === p.id">Confirmer</button>
                         <button class="btn btn-outline btn-sm" *ngIf="p.statut === 'VALIDE'"

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 import { Transporteur } from '../../models/models';
@@ -22,7 +22,8 @@ export class Transporteurs implements OnInit {
 
   constructor(
     private apiService: ApiService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit() {
@@ -35,10 +36,12 @@ export class Transporteurs implements OnInit {
       next: (data) => {
         this.transporteurs = data;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.notificationService.error('Erreur lors du chargement des transporteurs');
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -79,31 +82,33 @@ export class Transporteurs implements OnInit {
         this.notificationService.success(this.isEditMode ? 'Transporteur modifié !' : 'Transporteur créé !');
         this.chargerTransporteurs();
         this.fermerModal();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.notificationService.error('Erreur lors de l\'ajout');
         this.isSaving = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
   supprimerTransporteur(id?: number) {
     if (!id) return;
-    if (confirm('Voulez-vous révoquer ce transporteur ?')) {
-      const snapshot = [...this.transporteurs];
-      this.transporteurs = this.transporteurs.filter(t => t.id != id);
-      this.deletingTransporteurId = id;
-      this.apiService.deleteTransporteur(id).subscribe({
-        next: () => {
-          this.notificationService.success('Transporteur supprimé !');
-          this.deletingTransporteurId = undefined;
-        },
-        error: () => {
-          this.transporteurs = snapshot;
-          this.notificationService.error('Erreur lors de la suppression');
-          this.deletingTransporteurId = undefined;
-        }
-      });
-    }
+    const snapshot = [...this.transporteurs];
+    this.transporteurs = this.transporteurs.filter(t => t.id != id);
+    this.deletingTransporteurId = id;
+    this.apiService.deleteTransporteur(id).subscribe({
+      next: () => {
+        this.notificationService.success('Transporteur supprimé !');
+        this.deletingTransporteurId = undefined;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.transporteurs = snapshot;
+        this.notificationService.error('Erreur lors de la suppression');
+        this.deletingTransporteurId = undefined;
+        this.cdr.detectChanges();
+      }
+    });
   }
 }

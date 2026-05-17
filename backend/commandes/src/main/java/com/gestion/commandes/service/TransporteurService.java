@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 /**
  * Service Transporteur - Gère la logique métier des transporteurs
  */
+@SuppressWarnings("null")
 @Service
 public class TransporteurService {
 

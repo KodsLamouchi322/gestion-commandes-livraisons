@@ -60,4 +60,8 @@ public class Produit {
     @JsonIgnore
     @OneToMany(mappedBy = "produit", cascade = CascadeType.ALL)
     private List<Avis> avis = new ArrayList<>();
+
+    /** Note moyenne (1–5), calculée à la volée — non persistée, exposée au JSON catalogue. */
+    @Transient
+    private Double noteMoyenne;
 }

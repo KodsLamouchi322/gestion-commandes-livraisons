@@ -1,0 +1,94 @@
+<div class="page-header">
+    <div>
+        <h1>Alertes Stock 📊</h1>
+        <p>Surveillez les produits nécessitant un réapprovisionnement</p>
+    </div>
+</div>
+
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">
+    Chargement des alertes stock...
+</div>
+
+<div *ngIf="!isLoading" class="glass-card">
+    <div class="dashboard-widget">
+        <div class="widget-icon">⚠️</div>
+        <div class="widget-content">
+            <h3>{{ produitsStockFaible.length }}</h3>
+            <p>Produits en stock faible (< 10 unités)</p>
+        </div>
+    </div>
+
+    <div class="empty-state" *ngIf="produitsStockFaible.length === 0">
+        <div class="empty-icon">✅</div>
+        <h3>Tous les stocks sont suffisants</h3>
+        <p>Aucun produit ne nécessite de réapprovisionnement</p>
+    </div>
+
+    <table class="modern-table" *ngIf="produitsStockFaible.length > 0">
+        <thead>
+            <tr>
+                <th>Produit</th>
+                <th>Stock Actuel</th>
+                <th>Seuil</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let p of produitsStockFaible">
+                <td><strong>{{ p.nom }}</strong></td>
+                <td>
+                    <span class="badge badge-error">{{ p.quantiteEnStock }} unités</span>
+                </td>
+                <td>10 unités</td>
+                <td>
+                    <button class="btn btn-primary btn-sm" 
+                        [attr.aria-label]="'Créer un bon de commande pour ' + p.nom"
+                        (click)="ouvrirModalCreationBon(p)">
+                        📦 Créer Bon de Commande
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal de création de bon de commande -->
+<div class="modal-backdrop" *ngIf="showCreateBonModal" (click)="fermerModalCreationBon()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h2>Créer un Bon de Commande</h2>
+            <button class="close-btn" (click)="fermerModalCreationBon()" aria-label="Fermer">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Produit:</label>
+                <input type="text" [value]="selectedProduit?.nom" disabled class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="fournisseurSelect">Fournisseur:</label>
+                <select id="fournisseurSelect" [(ngModel)]="selectedFournisseurId" class="form-select">
+                    <option [ngValue]="undefined">-- Choisir un fournisseur --</option>
+                    <option *ngFor="let f of fournisseurs" [ngValue]="f.id">{{ f.nom }}</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="bonQuantite">Quantité à commander:</label>
+                <input type="number" id="bonQuantite" [(ngModel)]="bonQuantite" min="1" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="bonPrixAchat">Prix d'achat unitaire (€):</label>
+                <input type="number" id="bonPrixAchat" [(ngModel)]="bonPrixAchat" min="0" step="0.01" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Montant total:</label>
+                <input type="text" [value]="(bonQuantite * bonPrixAchat) | currency:'EUR':'symbol'" disabled class="form-control">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" (click)="fermerModalCreationBon()">Annuler</button>
+            <button class="btn btn-primary" (click)="creerBonCommande()">
+                Créer le Bon de Commande
+            </button>
+        </div>
+    </div>
+</div>

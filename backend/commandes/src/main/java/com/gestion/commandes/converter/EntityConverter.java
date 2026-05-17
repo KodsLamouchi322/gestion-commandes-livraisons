@@ -27,6 +27,10 @@ public class EntityConverter {
     @Autowired
     private LivraisonRepository livraisonRepository;
 
+    // Injecté pour récupérer le paiement d'une commande
+    @Autowired
+    private com.gestion.commandes.repository.PaiementRepository paiementRepository;
+
     // ============================================================
     // CLIENT
     // ============================================================
@@ -85,6 +89,12 @@ public class EntityConverter {
             );
         } else {
             dto.setLignesCommande(Collections.emptyList());
+        }
+
+        // Paiement (si existe)
+        if (commande.getId() != null) {
+            paiementRepository.findByCommandeId(commande.getId())
+                .ifPresent(paiement -> dto.setPaiement(toPaiementDTO(paiement)));
         }
 
         return dto;

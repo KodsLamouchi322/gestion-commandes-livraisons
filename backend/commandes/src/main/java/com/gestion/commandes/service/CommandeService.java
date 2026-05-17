@@ -4,8 +4,12 @@ import com.gestion.commandes.converter.EntityConverter;
 import com.gestion.commandes.dto.CommandeDTO;
 import com.gestion.commandes.entity.Client;
 import com.gestion.commandes.entity.Commande;
+import com.gestion.commandes.entity.Livraison;
+import com.gestion.commandes.entity.Paiement;
 import com.gestion.commandes.repository.ClientRepository;
 import com.gestion.commandes.repository.CommandeRepository;
+import com.gestion.commandes.repository.LivraisonRepository;
+import com.gestion.commandes.repository.PaiementRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +28,7 @@ import java.util.stream.Collectors;
  * Utilise EntityConverter (dossier converter/) pour transformer
  * les entités JPA en DTOs avant de les envoyer au frontend.
  */
+@SuppressWarnings("null")
 @Service
 public class CommandeService {
 
@@ -33,6 +38,15 @@ public class CommandeService {
 
     @Autowired
     private ClientRepository clientRepository;
+
+    @Autowired
+    private StockService stockService;
+
+    @Autowired
+    private LivraisonRepository livraisonRepository;
+
+    @Autowired
+    private PaiementRepository paiementRepository;
 
     // Converter injecté : convertit entité → DTO
     @Autowired
@@ -127,6 +141,13 @@ public class CommandeService {
             c.setStatut(Commande.StatutCommande.EN_ATTENTE);
         }
 
+        // Réserver le stock pour les lignes de commande
+        // Cette opération est dans la même transaction que la création de la commande
+        // Si le stock est insuffisant, une exception est levée et toute la transaction est annulée
+        if (c.getLignesCommande() != null && !c.getLignesCommande().isEmpty()) {
+            stockService.reserverStock(c.getLignesCommande());
+        }
+
         Commande saved = rep.save(c);
         return converter.toCommandeDTO(saved);
     }
@@ -166,6 +187,22 @@ public class CommandeService {
                         HttpStatus.NOT_FOUND,
                         "Commande introuvable avec l'ID : " + id));
         validerTransitionStatut(commande.getStatut(), statut);
+        
+        // Si la commande est annulée, on libère le stock, on annule la livraison en préparation et le paiement en attente
+        if (statut == Commande.StatutCommande.ANNULEE) {
+            if (commande.getLignesCommande() != null && !commande.getLignesCommande().isEmpty()) {
+                stockService.libererStock(commande.getLignesCommande());
+            }
+            if (commande.getLivraison() != null && commande.getLivraison().getStatut() == Livraison.StatutLivraison.EN_PREPARATION) {
+                commande.getLivraison().setStatut(Livraison.StatutLivraison.ANNULEE);
+                livraisonRepository.save(commande.getLivraison());
+            }
+            if (commande.getPaiement() != null && commande.getPaiement().getStatut() == Paiement.StatutPaiement.EN_ATTENTE) {
+                commande.getPaiement().setStatut(Paiement.StatutPaiement.ANNULE);
+                paiementRepository.save(commande.getPaiement());
+            }
+        }
+        
         commande.setStatut(statut);
         Commande saved = rep.save(commande);
         return converter.toCommandeDTO(saved);

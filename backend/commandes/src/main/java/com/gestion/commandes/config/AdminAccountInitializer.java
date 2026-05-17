@@ -16,10 +16,10 @@ public class AdminAccountInitializer {
     private final ClientRepository clientRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${app.admin.email:admin@gestion.local}")
+    @Value("${app.admin.email:admin@gestion.com}")
     private String adminEmail;
 
-    @Value("${app.admin.password:Admin123!}")
+    @Value("${app.admin.password:admin123}")
     private String adminPassword;
 
     @PostConstruct

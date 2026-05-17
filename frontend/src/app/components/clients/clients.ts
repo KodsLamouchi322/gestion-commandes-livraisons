@@ -1,72 +1,72 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
-import { Commande } from '../../models/models';
+import { Client } from '../../models/models';
 
 @Component({
-  selector: 'app-commandes',
-  templateUrl: './commandes.html',
-  styleUrls: ['./commandes.css'],
+  selector: 'app-clients',
+  templateUrl: './clients.html',
+  styleUrls: ['./clients.css'],
   standalone: false
 })
-export class Commandes implements OnInit {
+export class Clients implements OnInit {
 
-  commandes: Commande[] = [];
+  clients: Client[] = [];
   isLoading = true;
+  isSaving = false;
   search = '';
   pageSize = 10;
   currentPage = 1;
-  processingCommandeId?: number;
+  deletingClientId?: number;
+
+  isModalOpen = false;
+  isEditMode = false;
+  nouveauClient: Partial<Client> & { motDePasse?: string } = {};
 
   constructor(
     private apiService: ApiService,
-    private notificationService: NotificationService
-  ) { }
+    private notificationService: NotificationService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
-  ngOnInit() {
-    this.chargerCommandes();
+  ngOnInit(): void {
+    this.chargerClients();
   }
 
-  chargerCommandes() {
+  chargerClients(): void {
     this.isLoading = true;
-    this.apiService.getCommandes().subscribe({
+    this.apiService.getAdminClients().subscribe({
       next: (data) => {
-        this.commandes = data;
+        this.clients = data;
         this.currentPage = 1;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
-        this.notificationService.error('Erreur lors du chargement des commandes');
+        this.notificationService.error('Erreur lors du chargement des clients');
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
-  // Le backend renvoie maintenant clientNom au lieu de client.nom
-  // On supporte les deux pour la compatibilité
-  getClientNom(cmd: Commande): string {
-    if (cmd.clientNom) return cmd.clientNom;
-    if (cmd.client?.nom) return cmd.client.nom;
-    return '—';
-  }
-
-  get filteredCommandes(): Commande[] {
+  get filteredClients(): Client[] {
     const q = this.search.trim().toLowerCase();
-    if (!q) return this.commandes;
-    return this.commandes.filter(c =>
-      String(c.id || '').includes(q)
-      || this.getClientNom(c).toLowerCase().includes(q)
-      || (c.statut || '').toLowerCase().includes(q)
+    if (!q) return this.clients;
+    return this.clients.filter(c =>
+      String(c.id || '').includes(q) ||
+      (c.nom || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q)
     );
   }
 
   get totalPages(): number {
-    return Math.max(1, Math.ceil(this.filteredCommandes.length / this.pageSize));
+    return Math.max(1, Math.ceil(this.filteredClients.length / this.pageSize));
   }
 
-  get paginatedCommandes(): Commande[] {
+  get paginatedClients(): Client[] {
     const start = (this.currentPage - 1) * this.pageSize;
-    return this.filteredCommandes.slice(start, start + this.pageSize);
+    return this.filteredClients.slice(start, start + this.pageSize);
   }
 
   onSearchChange(): void {
@@ -77,50 +77,68 @@ export class Commandes implements OnInit {
     this.currentPage = Math.min(this.totalPages, Math.max(1, page));
   }
 
-  getBadgeClass(statut: string | undefined): string {
-    switch (statut) {
-      case 'EN_ATTENTE': return 'badge badge-warning';
-      case 'VALIDEE': return 'badge badge-success';
-      case 'EXPEDIEE': return 'badge badge-info';
-      case 'LIVREE': return 'badge badge-success';
-      case 'ANNULEE': return 'badge badge-error';
-      default: return 'badge';
-    }
+  ouvrirModal(): void {
+    this.isEditMode = false;
+    this.isSaving = false;
+    this.nouveauClient = {};
+    this.isModalOpen = true;
   }
 
-  validerCommande(id?: number) {
-    if (!id) return;
-    this.processingCommandeId = id;
-    this.apiService.validerCommande(id).subscribe({
-      next: (updated) => {
-        this.notificationService.success('Commande validée !');
-        const cmd = this.commandes.find(c => c.id === id);
-        if (cmd) cmd.statut = updated.statut;
-        this.processingCommandeId = undefined;
+  ouvrirEdition(client: Client): void {
+    this.isEditMode = true;
+    this.isSaving = false;
+    this.nouveauClient = { ...client };
+    this.isModalOpen = true;
+  }
+
+  fermerModal(): void {
+    this.isModalOpen = false;
+    this.isSaving = false;
+    this.nouveauClient = {};
+  }
+
+  ajouterClient(): void {
+    if (this.isSaving) return;
+    if (!this.nouveauClient.nom || !this.nouveauClient.email) {
+      this.notificationService.warning('Nom et email sont obligatoires !');
+      return;
+    }
+    this.isSaving = true;
+    const op = this.isEditMode && this.nouveauClient.id
+      ? this.apiService.updateAdminClient(this.nouveauClient.id, this.nouveauClient as Client)
+      : this.apiService.createAdminClient(this.nouveauClient as Client);
+
+    op.subscribe({
+      next: () => {
+        this.notificationService.success(this.isEditMode ? 'Client modifié !' : 'Client créé !');
+        this.chargerClients();
+        this.fermerModal();
       },
       error: () => {
-        this.notificationService.error('Erreur lors de la validation');
-        this.processingCommandeId = undefined;
+        this.notificationService.error('Erreur lors de l\'enregistrement');
+        this.isSaving = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
-  annulerCommande(id?: number) {
+  supprimerClient(id?: number): void {
     if (!id) return;
-    if (confirm('Êtes-vous sûr de vouloir annuler cette commande ?')) {
-      this.processingCommandeId = id;
-      this.apiService.annulerCommande(id).subscribe({
-        next: (updated) => {
-          this.notificationService.success('Commande annulée !');
-          const cmd = this.commandes.find(c => c.id === id);
-          if (cmd) cmd.statut = updated.statut;
-          this.processingCommandeId = undefined;
-        },
-        error: () => {
-          this.notificationService.error('Erreur lors de l\'annulation');
-          this.processingCommandeId = undefined;
-        }
-      });
-    }
+    const snapshot = [...this.clients];
+    this.clients = this.clients.filter(c => c.id !== id);
+    this.deletingClientId = id;
+    this.apiService.deleteAdminClient(id).subscribe({
+      next: () => {
+        this.notificationService.success('Client supprimé !');
+        this.deletingClientId = undefined;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.clients = snapshot;
+        this.notificationService.error('Erreur lors de la suppression');
+        this.deletingClientId = undefined;
+        this.cdr.detectChanges();
+      }
+    });
   }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 import { Categorie } from '../../models/models';
@@ -20,18 +20,26 @@ export class Categories implements OnInit {
 
     constructor(
         private api: ApiService,
-        private notificationService: NotificationService
+        private notificationService: NotificationService,
+        private cdr: ChangeDetectorRef
     ) { }
 
-    ngOnInit(): void { this.charger(); }
+    ngOnInit(): void {
+        this.charger();
+    }
 
     charger(): void {
         this.isLoading = true;
         this.api.getCategories().subscribe({
-            next: (c) => { this.categories = c; this.isLoading = false; },
+            next: (c) => {
+                this.categories = c;
+                this.isLoading = false;
+                this.cdr.detectChanges();
+            },
             error: () => {
                 this.notificationService.error('Erreur lors du chargement des catégories');
-                this.isLoading = false;  // Fix bug écran bloqué: évite le spinner infini
+                this.isLoading = false;
+                this.cdr.detectChanges();
             }
         });
     }
@@ -62,25 +70,29 @@ export class Categories implements OnInit {
                 this.notificationService.success(this.editMode ? 'Catégorie modifiée !' : 'Catégorie créée !');
                 this.charger();
                 this.fermer();
+                this.cdr.detectChanges();
             },
             error: () => {
                 this.notificationService.error('Erreur lors de l\'enregistrement');
                 this.isSaving = false;
+                this.cdr.detectChanges();
             }
         });
     }
 
     supprimer(id?: number): void {
-        if (!id || !confirm('Confirmer la suppression ?')) return;
+        if (!id) return;
         const snapshot = [...this.categories];
         this.categories = this.categories.filter(c => c.id != id);
         this.api.deleteCategorie(id).subscribe({
             next: () => {
                 this.notificationService.success('Catégorie supprimée !');
+                this.cdr.detectChanges();
             },
             error: () => {
                 this.categories = snapshot;
                 this.notificationService.error('Erreur lors de la suppression');
+                this.cdr.detectChanges();
             }
         });
     }

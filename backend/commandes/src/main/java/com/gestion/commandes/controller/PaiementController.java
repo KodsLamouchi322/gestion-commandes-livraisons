@@ -7,8 +7,10 @@ import com.gestion.commandes.service.StripeService;
 import com.stripe.exception.StripeException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -78,6 +80,16 @@ public class PaiementController {
     }
 
     /**
+     * POST /api/paiements/{id}/confirmer
+     * Confirms a payment (validates method and delivery status)
+     * Convenience endpoint that calls changerStatut(id, VALIDE)
+     */
+    @PostMapping("/{id}/confirmer")
+    public ResponseEntity<PaiementDTO> confirmerPaiement(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.confirmerPaiement(id));
+    }
+
+    /**
      * DELETE /api/paiements/{id}
      * Supprime un paiement
      */
@@ -99,10 +111,23 @@ public class PaiementController {
     public ResponseEntity<Map<String, String>> createCheckoutSession(@RequestBody Map<String, Integer> request) {
         try {
             Integer commandeId = request.get("commandeId");
+            if (commandeId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "commandeId est requis"));
+            }
             String checkoutUrl = stripeService.createCheckoutSession(commandeId);
             return ResponseEntity.ok(Map.of("url", checkoutUrl));
+        } catch (ResponseStatusException e) {
+            HttpStatus status = HttpStatus.resolve(e.getStatusCode().value());
+            if (status == null) status = HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(Map.of("error", e.getReason() != null ? e.getReason() : "Erreur Stripe"));
         } catch (StripeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            String msg = e.getMessage() != null ? e.getMessage() : "Erreur Stripe";
+            // Cas fréquent: clé manquante → message StripeException "No API key provided"
+            if (msg.toLowerCase().contains("no api key")) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(Map.of("error", "Stripe n'est pas configuré. Configurez STRIPE_SECRET_KEY (sk_test_...)"));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", msg));
         }
     }
 

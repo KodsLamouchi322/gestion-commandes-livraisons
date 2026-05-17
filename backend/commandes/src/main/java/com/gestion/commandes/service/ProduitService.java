@@ -21,7 +21,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -29,6 +31,7 @@ import java.util.UUID;
  * Utilise @Autowired pour l'injection de dépendances (style enseignant)
  * Toutes les méthodes sont publiques pour être appelées par le controller
  */
+@SuppressWarnings("null")
 @Service
 public class ProduitService {
 
@@ -61,7 +64,9 @@ public class ProduitService {
      * @return Liste de tous les produits
      */
     public List<Produit> chercherTout() {
-        return rep.findAll();
+        List<Produit> list = rep.findAll();
+        enrichirNotesMoyennes(list);
+        return list;
     }
 
     /**
@@ -79,6 +84,7 @@ public class ProduitService {
                     .filter(p -> p.getCategorie() != null && p.getCategorie().getId().equals(categorieId))
                     .toList();
         }
+        enrichirNotesMoyennes(produits);
         return produits;
     }
 
@@ -89,10 +95,12 @@ public class ProduitService {
      * @throws ResponseStatusException si le produit n'existe pas
      */
     public Produit chercherParId(Integer id) {
-        return rep.findById(id)
+        Produit p = rep.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, 
+                        HttpStatus.NOT_FOUND,
                         "Produit introuvable avec l'ID : " + id));
+        enrichirNotesMoyennes(List.of(p));
+        return p;
     }
 
     /**
@@ -101,7 +109,9 @@ public class ProduitService {
      * @return Liste des produits correspondants
      */
     public List<Produit> chercherParNom(String nom) {
-        return rep.findByNomStartingWith(nom);
+        List<Produit> list = rep.findByNomStartingWith(nom);
+        enrichirNotesMoyennes(list);
+        return list;
     }
 
     /**
@@ -110,7 +120,35 @@ public class ProduitService {
      * @return Liste des produits de cette catégorie
      */
     public List<Produit> chercherParCategorie(Integer categorieId) {
-        return rep.findByCategorieId(categorieId);
+        List<Produit> list = rep.findByCategorieId(categorieId);
+        enrichirNotesMoyennes(list);
+        return list;
+    }
+
+    /**
+     * Renseigne {@link Produit#setNoteMoyenne(Double)} pour chaque produit (requête groupée, pas N+1).
+     */
+    private void enrichirNotesMoyennes(List<Produit> produits) {
+        if (produits == null || produits.isEmpty()) {
+            return;
+        }
+        List<Object[]> rows = avisRepository.findAverageNoteGroupByProduitId();
+        Map<Integer, Double> moyennes = new HashMap<>();
+        for (Object[] row : rows) {
+            if (row[0] == null || row[1] == null) {
+                continue;
+            }
+            Integer pid = ((Number) row[0]).intValue();
+            double raw = ((Number) row[1]).doubleValue();
+            moyennes.put(pid, Math.round(raw * 10.0) / 10.0);
+        }
+        for (Produit p : produits) {
+            if (p.getId() == null) {
+                continue;
+            }
+            Double m = moyennes.get(p.getId());
+            p.setNoteMoyenne(m != null && m > 0 ? m : null);
+        }
     }
 
     /**
@@ -128,7 +166,9 @@ public class ProduitService {
                             "Catégorie introuvable"));
             p.setCategorie(cat);
         }
-        return rep.save(p);
+        Produit saved = rep.save(p);
+        enrichirNotesMoyennes(List.of(saved));
+        return saved;
     }
 
     /**
@@ -162,8 +202,9 @@ public class ProduitService {
             existant.setCategorie(cat);
         }
 
-        // On sauvegarde les modifications
-        return rep.save(existant);
+        Produit saved = rep.save(existant);
+        enrichirNotesMoyennes(List.of(saved));
+        return saved;
     }
 
     /**
@@ -225,6 +266,8 @@ public class ProduitService {
         
         // Mettre à jour l'URL de l'image dans le produit
         produit.setImageUrl("/uploads/" + filename);
-        return rep.save(produit);
+        Produit saved = rep.save(produit);
+        enrichirNotesMoyennes(List.of(saved));
+        return saved;
     }
 }

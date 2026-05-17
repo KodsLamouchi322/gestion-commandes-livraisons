@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError, forkJoin, map, switchMap } from 'rxjs';
+import { Observable, throwError, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { AuthService } from './auth.service';
+import { environment } from '../../environments/environment';
 import {
     Avis, BonCommande, Categorie, Client, Commande,
     Fournisseur, LigneBonCommande, LigneCommande,
@@ -12,7 +12,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
 
-    private readonly base = '/api';
+    private readonly base = environment.apiUrl;
 
     constructor(
         private http: HttpClient,
@@ -25,6 +25,31 @@ export class ApiService {
             throw new Error('Client non authentifie');
         }
         return clientId;
+    }
+
+    private parseJsonOrNull<T>(raw: unknown): T | null {
+        if (raw == null) return null;
+        if (typeof raw === 'object') return raw as T;
+        if (typeof raw !== 'string') return null;
+        const trimmed = raw.trim();
+        if (!trimmed) return null;
+        try {
+            return JSON.parse(trimmed) as T;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Certains endpoints du backend renvoient parfois un body vide (ou non JSON).
+     * Pour éviter les "reload nécessaires" côté UI, on retombe sur getPanier().
+     */
+    private panierMutation<T>(req$: Observable<T>): Observable<Panier> {
+        return req$.pipe(
+            map((body: any) => this.parseJsonOrNull<Panier>(body)),
+            switchMap((maybe) => maybe ? of(maybe) : this.getPanier()),
+            catchError(() => this.getPanier())
+        );
     }
 
     // ── CATEGORIES ──────────────────────────────────────────
@@ -95,46 +120,68 @@ export class ApiService {
         return this.http.get<Panier>(`${this.base}/panier/client/${this.getClientId()}`);
     }
     ajouterAuPanier(produitId: number, quantite: number = 1): Observable<Panier> {
-        return this.http.post<Panier>(
-            `${this.base}/panier/client/${this.getClientId()}/produit/${produitId}?quantite=${quantite}`,
-            {}
+        const url = `${this.base}/panier/client/${this.getClientId()}/produit/${produitId}?quantite=${quantite}`;
+        return this.panierMutation(
+            this.http.post(url, {}, { responseType: 'text' as const })
         );
     }
     modifierQuantitePanier(produitId: number, quantite: number): Observable<Panier> {
         const clientId = this.getClientId();
         if (quantite <= 0) {
-            return this.http.delete<Panier>(`${this.base}/panier/client/${clientId}/produit/${produitId}`);
+            return this.panierMutation(
+                this.http.delete(`${this.base}/panier/client/${clientId}/produit/${produitId}`, { responseType: 'text' as const })
+            );
         }
-        return this.http.delete<Panier>(`${this.base}/panier/client/${clientId}/produit/${produitId}`).pipe(
-            switchMap(() => this.http.post<Panier>(
-                `${this.base}/panier/client/${clientId}/produit/${produitId}?quantite=${quantite}`,
-                {}
-            ))
+        const del$ = this.http.delete(`${this.base}/panier/client/${clientId}/produit/${produitId}`, { responseType: 'text' as const });
+        const add$ = this.http.post(
+            `${this.base}/panier/client/${clientId}/produit/${produitId}?quantite=${quantite}`,
+            {},
+            { responseType: 'text' as const }
+        );
+        return this.panierMutation(
+            del$.pipe(switchMap(() => add$))
         );
     }
     supprimerLignePanier(produitId: number): Observable<Panier> {
-        return this.http.delete<Panier>(`${this.base}/panier/client/${this.getClientId()}/produit/${produitId}`);
+        const url = `${this.base}/panier/client/${this.getClientId()}/produit/${produitId}`;
+        return this.panierMutation(
+            this.http.delete(url, { responseType: 'text' as const })
+        );
     }
     viderPanier(): Observable<void> {
         return this.http.delete<void>(`${this.base}/panier/client/${this.getClientId()}`);
     }
     commanderPanier(): Observable<Commande> {
-        const clientId = this.getClientId();
+        let clientId: number;
+        try {
+            clientId = this.getClientId();
+        } catch {
+            return throwError(() => new Error('Session expirée, reconnectez-vous'));
+        }
         return this.getPanier().pipe(
             switchMap((panier) => {
-                const montantTotal = panier.lignes.reduce((sum, l) => sum + (l.produit.prixUnitaire * l.quantite), 0);
+                if (panier.lignes.length === 0) {
+                    return throwError(() => new Error('Le panier est vide'));
+                }
+                // Utilise prixUnitaire sauvegradé dans LignePanier, sinon le prix produit
+                const montantTotal = panier.lignes.reduce(
+                    (sum, l) => sum + (l.prixUnitaire ?? l.produit.prixUnitaire ?? 0) * l.quantite, 0
+                );
+                if (montantTotal <= 0) {
+                    return throwError(() => new Error('Montant invalide - vérifiez le prix des produits'));
+                }
                 return this.getMonProfil().pipe(
                     switchMap((profil) => this.createCommande({
                         client: { id: clientId, nom: profil.nom, email: profil.email, adresse: profil.adresse },
                         montantTotal,
-                        adresseLivraison: profil.adresse || 'Adresse à renseigner'
+                        adresseLivraison: profil.adresse?.trim() || 'Adresse non renseignée'
                     }).pipe(
                         switchMap((commande) => {
                             const lignes = panier.lignes.map((ligne) => this.createLigne({
                                 commande: { id: commande.id },
                                 produit: ligne.produit,
                                 quantite: ligne.quantite,
-                                prixUnitaire: ligne.produit.prixUnitaire
+                                prixUnitaire: ligne.prixUnitaire ?? ligne.produit.prixUnitaire ?? 0
                             }));
                             if (lignes.length === 0) {
                                 return this.viderPanier().pipe(map(() => commande));
@@ -221,11 +268,34 @@ export class ApiService {
     getLivraisons(): Observable<Livraison[]> {
         return this.http.get<Livraison[]>(`${this.base}/livraisons`);
     }
-    getLivraisonByCommande(commandeId: number): Observable<Livraison> {
-        return this.http.get<Livraison>(`${this.base}/livraisons/commande/${commandeId}`);
+    getLivraisonByCommande(commandeId: number): Observable<Livraison | null> {
+        return this.http
+            .get<Livraison>(`${this.base}/livraisons/commande/${commandeId}`, { observe: 'response' })
+            .pipe(
+                map((res) => {
+                    if (res.status === 204 || res.body == null) {
+                        return null;
+                    }
+                    return res.body;
+                }),
+                catchError(() => of(null))
+            );
     }
     createLivraison(l: Livraison): Observable<Livraison> {
         return this.http.post<Livraison>(`${this.base}/livraisons`, l);
+    }
+    creerLivraisonDepuisCommande(commandeId: number, cout: number, transporteurId?: number): Observable<Livraison> {
+        const body = { commandeId, cout, transporteurId };
+        return this.http.post<Livraison>(`${this.base}/livraisons/depuis-commande`, body);
+    }
+    assignerTransporteur(livraisonId: number, transporteurId: number): Observable<Livraison> {
+        return this.http.put<Livraison>(`${this.base}/livraisons/${livraisonId}/transporteur/${transporteurId}`, {});
+    }
+    expedierLivraison(id: number): Observable<Livraison> {
+        return this.http.put<Livraison>(`${this.base}/livraisons/${id}/expedier`, {});
+    }
+    livrerLivraison(id: number): Observable<Livraison> {
+        return this.http.put<Livraison>(`${this.base}/livraisons/${id}/livrer`, {});
     }
     updateStatutLivraison(id: number, statut: string): Observable<Livraison> {
         return this.http.put<Livraison>(`${this.base}/livraisons/${id}/statut/${statut}`, {});
@@ -244,24 +314,39 @@ export class ApiService {
             return throwError(() => new Error('Commande invalide pour le paiement'));
         }
         return this.getCommandeById(commandeId).pipe(
-            switchMap((commande) => this.http.post<Paiement>(`${this.base}/paiements`, {
-                commande: { id: commande.id },
-                methodePaiement: p.methodePaiement,
-                statut: p.statut,
-                montant: commande.montantTotal ?? 0,
-                datePaiement: new Date().toISOString()
-            })),
+            switchMap((commande) => this.http.post(
+                `${this.base}/paiements`,
+                {
+                    commande: { id: commande.id },
+                    methodePaiement: p.methodePaiement,
+                    statut: p.statut,
+                    montant: commande.montantTotal ?? 0,
+                    datePaiement: new Date().toISOString()
+                },
+                { responseType: 'text' as const }
+            ).pipe(
+                map((raw) => this.parseJsonOrNull<Paiement>(raw) ?? ({} as Paiement))
+            )),
             catchError((error) => throwError(() => error))
         );
     }
     confirmerPaiement(id: number): Observable<Paiement> {
-        return this.http.put<Paiement>(`${this.base}/paiements/${id}/statut/VALIDE`, {});
+        return this.http.post<Paiement>(`${this.base}/paiements/${id}/confirmer`, {});
     }
     rembourserPaiement(id: number): Observable<Paiement> {
         return this.http.put<Paiement>(`${this.base}/paiements/${id}/statut/REFUSE`, {});
     }
     createStripeCheckoutSession(commandeId: number): Observable<{ url: string }> {
-        return this.http.post<{ url: string }>(`${this.base}/paiements/stripe/create-checkout-session`, { commandeId });
+        return this.http.post(`${this.base}/paiements/stripe/create-checkout-session`, { commandeId }, { responseType: 'text' as const }).pipe(
+            map((raw) => {
+                const parsed = this.parseJsonOrNull<{ url: string }>(raw);
+                if (parsed?.url) return parsed;
+                // Certains backends renvoient directement l'URL en string
+                const url = typeof raw === 'string' ? raw.trim() : '';
+                if (!url) throw new Error('URL Stripe invalide');
+                return { url };
+            })
+        );
     }
     verifyStripeSession(sessionId: string): Observable<Paiement> {
         return this.http.get<Paiement>(`${this.base}/paiements/stripe/verify-session?session_id=${sessionId}`);
@@ -291,6 +376,18 @@ export class ApiService {
     createBonCommande(bc: Partial<BonCommande>): Observable<BonCommande> {
         return this.http.post<BonCommande>(`${this.base}/bons-commande`, bc);
     }
+    creerBonCommande(request: any): Observable<BonCommande> {
+        return this.http.post<BonCommande>(`${this.base}/bons-commande`, request);
+    }
+    envoyerBonCommande(id: number): Observable<BonCommande> {
+        return this.http.put<BonCommande>(`${this.base}/bons-commande/${id}/envoyer`, {});
+    }
+    recevoirBonCommande(id: number): Observable<BonCommande> {
+        return this.http.put<BonCommande>(`${this.base}/bons-commande/${id}/recevoir`, {});
+    }
+    annulerBonCommande(id: number): Observable<BonCommande> {
+        return this.http.put<BonCommande>(`${this.base}/bons-commande/${id}/annuler`, {});
+    }
     addLigneBonCommande(bcId: number, l: LigneBonCommande): Observable<LigneBonCommande> {
         return this.http.post<LigneBonCommande>(`${this.base}/bons-commande/${bcId}/lignes`, l);
     }
@@ -299,6 +396,11 @@ export class ApiService {
     }
     receptionnerBonCommande(bcId: number): Observable<BonCommande> {
         return this.http.put<BonCommande>(`${this.base}/bons-commande/${bcId}/receptionner`, {});
+    }
+
+    // ── STOCK ────────────────────────────────────────────────
+    getProduitsStockFaible(): Observable<Produit[]> {
+        return this.http.get<Produit[]>(`${this.base}/stock/faible`);
     }
 
     // ── PROFIL CLIENT ────────────────────────────────────────

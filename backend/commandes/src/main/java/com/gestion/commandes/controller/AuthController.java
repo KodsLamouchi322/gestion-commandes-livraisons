@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Controller Auth - Gestion de l'authentification JWT
  */
+@SuppressWarnings("null")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

@@ -55,3 +55,6 @@ backend/commandes/uploads/
 
 # JDK tools (trop lourds pour GitHub)
 .tools/
+
+# Archives (trop lourds pour GitHub)
+*.zip

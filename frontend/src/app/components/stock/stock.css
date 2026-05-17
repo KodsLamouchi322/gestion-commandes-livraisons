@@ -1,0 +1,25 @@
+.dashboard-widget {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    color: white;
+}
+
+.widget-icon {
+    font-size: 3rem;
+}
+
+.widget-content h3 {
+    font-size: 2.5rem;
+    margin: 0;
+    font-weight: bold;
+}
+
+.widget-content p {
+    margin: 0;
+    opacity: 0.9;
+}

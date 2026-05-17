@@ -29,9 +29,6 @@
     <a routerLink="/admin/bons-commande" routerLinkActive="active" class="drawer-link" title="Bons de commande">
         <span class="drawer-icon">📜</span><span class="drawer-label">Bons commande</span>
     </a>
-    <a routerLink="/admin/avis" routerLinkActive="active" class="drawer-link" title="Avis">
-        <span class="drawer-icon">⭐</span><span class="drawer-label">Avis</span>
-    </a>
 </aside>
 
 <nav class="topbar">
@@ -44,7 +41,6 @@
         <div class="topbar-actions">
             <a *ngIf="!auth.isAuthenticated()" routerLink="/auth/login" class="btn btn-outline">Connexion</a>
             <a *ngIf="!auth.isAuthenticated()" routerLink="/auth/register" class="btn btn-primary">Inscription</a>
-            <button *ngIf="auth.isAuthenticated()" type="button" class="btn btn-outline" (click)="goToProfile()">Profil</button>
             <button *ngIf="auth.isAuthenticated()" type="button" class="btn btn-outline" (click)="logout()">Déconnexion</button>
         </div>
     </div>

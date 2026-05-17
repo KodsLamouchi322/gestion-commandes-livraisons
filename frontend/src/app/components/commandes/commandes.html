@@ -5,6 +5,13 @@
     </div>
 </div>
 
+<p class="admin-hint glass-card" *ngIf="!isLoading && commandes.length > 0">
+    <strong>Règles utiles :</strong>
+    <strong>Valider</strong> passe la commande de <em>EN_ATTENTE</em> à <em>VALIDEE</em> (acceptation manuelle).
+    <strong>Créer livraison</strong> est possible dès que la commande est en <em>EN_ATTENTE</em> ou <em>VALIDEE</em> (avant ou après « Valider », dans l’ordre que vous préférez).
+    Un <strong>paiement</strong> confirmé peut aussi mettre la commande en <em>VALIDEE</em> (voir écran Paiements). Les colonnes indiquent l’état du paiement connu pour chaque commande.
+</p>
+
 <div *ngIf="isLoading" class="loader" role="status" aria-live="polite">
     Chargement des commandes...
 </div>
@@ -27,6 +34,7 @@
                 <th>Client</th>
                 <th>Date</th>
                 <th>Montant</th>
+                <th>Paiement</th>
                 <th>Statut</th>
                 <th>Actions</th>
             </tr>
@@ -38,15 +46,26 @@
                 <td>{{ getClientNom(cmd) }}</td>
                 <td>{{ (cmd.dateCommande || cmd.date) | date:'short' }}</td>
                 <td><strong>{{ cmd.montantTotal | currency:'EUR':'symbol' }}</strong></td>
+                <td><small>{{ resumePaiement(cmd) }}</small></td>
                 <td>
                     <span [ngClass]="getBadgeClass(cmd.statut)">{{ cmd.statut }}</span>
+                    <span *ngIf="getLivraison(cmd.id)" class="badge badge-info" style="margin-left: 8px;">
+                        🚚 {{ getLivraison(cmd.id)?.statut }}
+                    </span>
                 </td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-primary btn-sm" *ngIf="cmd.statut === 'EN_ATTENTE'"
+                        <button type="button" class="btn btn-primary btn-sm" *ngIf="cmd.statut === 'EN_ATTENTE'"
+                            title="Accepte la commande (passe en VALIDEE). Peut être fait avant ou après la création de livraison."
                             [attr.aria-label]="'Valider la commande ' + cmd.id"
                             (click)="validerCommande(cmd.id)" [disabled]="processingCommandeId === cmd.id">✅ Valider</button>
-                        <button class="btn btn-danger btn-sm"
+                        <button type="button" class="btn btn-success btn-sm" *ngIf="peutCreerLivraison(cmd)"
+                            title="Crée une livraison en préparation. Disponible en EN_ATTENTE ou VALIDEE."
+                            [attr.aria-label]="'Créer une livraison pour la commande ' + cmd.id"
+                            (click)="ouvrirModalCreationLivraison(cmd.id)" [disabled]="processingCommandeId === cmd.id">
+                            🚚 Créer Livraison
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm"
                             *ngIf="cmd.statut !== 'LIVREE' && cmd.statut !== 'ANNULEE'"
                             [attr.aria-label]="'Annuler la commande ' + cmd.id"
                             (click)="annulerCommande(cmd.id)" [disabled]="processingCommandeId === cmd.id">Annuler</button>
@@ -61,5 +80,34 @@
         <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage - 1)" [disabled]="currentPage === 1" aria-label="Page précédente">Précédent</button>
         <span>Page {{ currentPage }} / {{ totalPages }}</span>
         <button type="button" class="btn btn-outline btn-sm" (click)="setPage(currentPage + 1)" [disabled]="currentPage === totalPages" aria-label="Page suivante">Suivant</button>
+    </div>
+</div>
+
+<!-- Modal de création de livraison -->
+<div class="modal-backdrop" *ngIf="showCreateLivraisonModal" (click)="fermerModalCreationLivraison($event)">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2>Créer une Livraison</h2>
+            <button class="close-btn" (click)="fermerModalCreationLivraison()" aria-label="Fermer">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="livraisonCout">Coût de livraison (€):</label>
+                <input type="number" id="livraisonCout" [(ngModel)]="livraisonCout" min="0" step="0.01" class="form-control" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="livraisonTransporteur">Transporteur (optionnel):</label>
+                <select id="livraisonTransporteur" [(ngModel)]="livraisonTransporteurId" class="form-select">
+                    <option [ngValue]="undefined">-- Aucun (assigner plus tard) --</option>
+                    <option *ngFor="let t of transporteurs" [ngValue]="t.id">{{ t.nom }}</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" (click)="fermerModalCreationLivraison()" [disabled]="isProcessingLivraison">Annuler</button>
+            <button class="btn btn-primary" (click)="creerLivraison()" [disabled]="isProcessingLivraison">
+                {{ isProcessingLivraison ? 'Création...' : 'Créer la Livraison' }}
+            </button>
+        </div>
     </div>
 </div>

@@ -3,6 +3,15 @@
         <h1>Suivi des Livraisons 🚚</h1>
         <p>Pilotez l'expédition et le transport de vos commandes</p>
     </div>
+    <div class="filter-section">
+        <label for="statutFilter">Filtrer par statut:</label>
+        <select id="statutFilter" [(ngModel)]="selectedStatutFilter" (change)="onFilterChange()" class="form-select">
+            <option value="TOUS">Tous</option>
+            <option value="EN_PREPARATION">En préparation</option>
+            <option value="EXPEDIEE">Expédiée</option>
+            <option value="LIVREE">Livrée</option>
+        </select>
+    </div>
 </div>
 
 <div *ngIf="isLoading" class="loader">
@@ -11,42 +20,80 @@
 
 <div *ngIf="!isLoading" class="glass-card table-container">
 
-    <div class="empty-state" *ngIf="livraisons.length === 0">
+    <div class="empty-state" *ngIf="livraisonsFiltered.length === 0">
         <div class="empty-icon">📭</div>
         <h3>Aucune livraison trouvée</h3>
     </div>
 
-    <table class="modern-table" *ngIf="livraisons.length > 0">
+    <table class="modern-table" *ngIf="livraisonsFiltered.length > 0">
         <thead>
             <tr>
                 <th>N° Livraison</th>
-                <th>Commande associée</th>
+                <th>Commande</th>
+                <th>Adresse</th>
                 <th>Transporteur</th>
-                <th>Coût</th>
                 <th>Statut</th>
-                <th>Actions rapides</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            <tr *ngFor="let liv of livraisons">
+            <tr *ngFor="let liv of livraisonsFiltered">
                 <td><strong>#LIV-{{ liv.id }}</strong></td>
-                <!-- Backend renvoie commandeId (LivraisonDTO) -->
                 <td>CMD-{{ liv.commandeId }}</td>
-                <!-- Backend renvoie transporteurNom (LivraisonDTO) -->
+                <td>{{ liv.adresse || '—' }}</td>
                 <td>{{ liv.transporteurNom || '—' }}</td>
-                <td><strong>{{ liv.cout | currency:'EUR':'symbol' }}</strong></td>
                 <td>
                     <span [ngClass]="getBadgeClass(liv.statut)">{{ liv.statut }}</span>
                 </td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-primary btn-sm" *ngIf="liv.statut === 'EN_PREPARATION'"
-                            (click)="changerStatut(liv.id, 'EN_TRANSIT')">Expédier</button>
-                        <button class="btn btn-outline btn-sm" *ngIf="liv.statut === 'EN_TRANSIT'"
-                            (click)="changerStatut(liv.id, 'LIVREE')">Clôturer</button>
+                        <button class="btn btn-sm btn-outline" *ngIf="liv.statut === 'EN_PREPARATION'"
+                            [attr.aria-label]="'Assigner un transporteur à la livraison ' + liv.id"
+                            (click)="ouvrirModalAssignation(liv.id)" [disabled]="processingLivraisonId === liv.id">
+                            Assigner Transporteur
+                        </button>
+                        <button class="btn btn-sm btn-primary" *ngIf="liv.statut === 'EN_PREPARATION'"
+                            [attr.aria-label]="'Marquer la livraison ' + liv.id + ' comme expédiée'"
+                            (click)="expedier(liv.id)" [disabled]="processingLivraisonId === liv.id">
+                            Expédier
+                        </button>
+                        <button class="btn btn-sm btn-primary" *ngIf="liv.statut === 'EXPEDIEE'"
+                            [attr.aria-label]="'Marquer la livraison ' + liv.id + ' comme livrée'"
+                            (click)="livrer(liv.id)" [disabled]="processingLivraisonId === liv.id">
+                            Marquer Livrée
+                        </button>
+                        <span *ngIf="liv.statut === 'LIVREE'" class="text-muted">Terminée</span>
+                        <span class="inline-progress" *ngIf="processingLivraisonId === liv.id" role="status" aria-live="polite">
+                            Traitement...
+                        </span>
                     </div>
                 </td>
             </tr>
         </tbody>
     </table>
+</div>
+
+<!-- Modal d'assignation de transporteur -->
+<div class="modal-backdrop" *ngIf="showAssignModal" (click)="fermerModalAssignation($event)">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h2>Assigner un Transporteur</h2>
+            <button class="close-btn" (click)="fermerModalAssignation()" aria-label="Fermer">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="transporteurSelect">Sélectionner un transporteur:</label>
+                <select id="transporteurSelect" [(ngModel)]="selectedTransporteurId" class="form-select">
+                    <option [ngValue]="undefined">-- Choisir un transporteur --</option>
+                    <option *ngFor="let t of transporteurs" [ngValue]="t.id">{{ t.nom }}</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" (click)="fermerModalAssignation($event)" [disabled]="isProcessingModal">Annuler</button>
+            <button class="btn btn-primary" (click)="assignerTransporteur()" [disabled]="!selectedTransporteurId || isProcessingModal">
+                {{ isProcessingModal ? 'Assignation...' : 'Assigner' }}
+            </button>
+        </div>
+    </div>
 </div>

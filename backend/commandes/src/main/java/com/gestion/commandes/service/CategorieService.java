@@ -14,6 +14,7 @@ import java.util.List;
 /**
  * Service Categorie - Gère la logique métier des catégories
  */
+@SuppressWarnings("null")
 @Service
 public class CategorieService {
 

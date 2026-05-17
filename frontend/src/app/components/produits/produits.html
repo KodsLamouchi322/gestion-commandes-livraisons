@@ -14,7 +14,7 @@
     </div>
     <table class="modern-table" *ngIf="produits.length>0">
         <thead>
-            <tr><th>Image</th><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Stock</th><th>Note</th><th>Actions</th></tr>
+            <tr><th>Image</th><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Stock</th><th>Actions</th></tr>
         </thead>
         <tbody>
             <tr *ngFor="let p of produits">
@@ -29,10 +29,6 @@
                     <span [style.color]="p.quantiteEnStock > 0 ? 'var(--success)' : 'var(--danger)'">
                         {{ p.quantiteEnStock }}
                     </span>
-                </td>
-                <td>
-                    <span *ngIf="p.noteMoyenne">⭐ {{ p.noteMoyenne }}/5</span>
-                    <span *ngIf="!p.noteMoyenne" class="text-muted">—</span>
                 </td>
                 <td>
                     <div class="action-buttons">
@@ -81,7 +77,7 @@
         <div class="form-group">
             <label class="form-label">Image du produit</label>
             <input type="file" class="form-control" accept="image/*" (change)="onFileChange($event)">
-            <small class="text-muted" *ngIf="selectedFile">Fichier sélectionné : {{ selectedFile.name }}</small>
+            <small class="text-muted" *ngIf="selectedFile">Fichier sélectionné : {{ selectedFile!.name }}</small>
             <img *ngIf="current.imageUrl && !selectedFile" [src]="current.imageUrl" style="max-height:100px;margin-top:8px;border-radius:6px" alt="aperçu">
         </div>
     </div>

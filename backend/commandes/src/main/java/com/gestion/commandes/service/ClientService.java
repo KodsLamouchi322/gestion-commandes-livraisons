@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
  * Les mots de passe sont hashés avec BCrypt via PasswordEncoder (@Bean dans SecurityConfig).
  * Le motDePasse n'est JAMAIS retourné au frontend (utilisation de ClientDTO).
  */
+@SuppressWarnings("null")
 @Service
 public class ClientService {
 

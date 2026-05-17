@@ -3,6 +3,7 @@ package com.gestion.commandes.service;
 import com.gestion.commandes.converter.EntityConverter;
 import com.gestion.commandes.dto.PaiementDTO;
 import com.gestion.commandes.entity.Commande;
+import com.gestion.commandes.entity.Livraison;
 import com.gestion.commandes.entity.Paiement;
 import com.gestion.commandes.repository.CommandeRepository;
 import com.gestion.commandes.repository.PaiementRepository;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
  * Quand un paiement est validé (statut → VALIDE),
  * la commande associée passe automatiquement à VALIDEE.
  */
+@SuppressWarnings("null")
 @Service
 public class PaiementService {
 
@@ -92,10 +94,15 @@ public class PaiementService {
                     "Paiement impossible sur une commande annulee");
         }
 
-        if (rep.findByCommandeId(commande.getId()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Un paiement existe deja pour cette commande");
-        }
+        // Vérifier s'il existe déjà un paiement VALIDE pour cette commande
+        rep.findByCommandeId(commande.getId()).ifPresent(paiementExistant -> {
+            if (paiementExistant.getStatut() == Paiement.StatutPaiement.VALIDE) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Un paiement valide existe deja pour cette commande");
+            }
+            // Si le paiement existant est EN_ATTENTE ou ECHOUE, on le supprime pour le remplacer
+            rep.delete(paiementExistant);
+        });
 
         p.setCommande(commande);
 
@@ -128,26 +135,95 @@ public class PaiementService {
      */
     @Transactional
     public PaiementDTO changerStatut(Integer id, Paiement.StatutPaiement statut) {
+        // Load payment entity fresh from repository to ensure it's managed within transaction scope
         Paiement paiement = rep.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Paiement introuvable"));
 
+        // Validate payment is in EN_ATTENTE status before confirmation (sauf pour remboursement)
         if (paiement.getStatut() == Paiement.StatutPaiement.VALIDE) {
+            if (statut != Paiement.StatutPaiement.REFUSE && statut != Paiement.StatutPaiement.ANNULE) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Un paiement valide ne peut être que remboursé (refusé) ou annulé");
+            }
+        } else if (paiement.getStatut() != Paiement.StatutPaiement.EN_ATTENTE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Un paiement valide ne peut plus etre modifie");
+                    "Le paiement doit etre en attente pour changer de statut");
         }
 
+        // Validate payment method and delivery status for confirmation
+        if (statut == Paiement.StatutPaiement.VALIDE) {
+            validatePaymentConfirmation(paiement);
+        }
+
+        // Update payment status and date within transaction
         paiement.setStatut(statut);
-        Paiement saved = rep.save(paiement);
+        
+        // Mettre à jour la date de paiement si validé
+        if (statut == Paiement.StatutPaiement.VALIDE) {
+            paiement.setDatePaiement(LocalDateTime.now());
+        }
 
         // Validation du paiement → commande automatiquement validée
+        // Update order status within the same transaction to ensure atomicity
         if (statut == Paiement.StatutPaiement.VALIDE) {
-            Commande commande = saved.getCommande();
-            commande.setStatut(Commande.StatutCommande.VALIDEE);
-            commandeRepository.save(commande);
+            Commande commande = paiement.getCommande();
+            if (commande != null && commande.getStatut() == Commande.StatutCommande.EN_ATTENTE) {
+                commande.setStatut(Commande.StatutCommande.VALIDEE);
+                commandeRepository.save(commande);
+            }
         }
+        
+        // Save payment after updating order to ensure both are persisted in same transaction
+        Paiement saved = rep.save(paiement);
 
         return converter.toPaiementDTO(saved);
+    }
+
+    /**
+     * Convenience method to confirm a payment
+     * Calls changerStatut(id, VALIDE) with all validation logic
+     * Updates payment date to current timestamp
+     * 
+     * @param id Payment ID to confirm
+     * @return PaiementDTO with updated status
+     */
+    @Transactional
+    public PaiementDTO confirmerPaiement(Integer id) {
+        return changerStatut(id, Paiement.StatutPaiement.VALIDE);
+    }
+
+    /**
+     * Valide les règles de confirmation de paiement selon la méthode de paiement
+     * et le statut de livraison
+     */
+    private void validatePaymentConfirmation(Paiement paiement) {
+        Paiement.MethodePaiement methode = paiement.getMethodePaiement();
+        
+        // Pour les paiements par carte, confirmation immédiate autorisée
+        if (methode == Paiement.MethodePaiement.CARTE) {
+            return;
+        }
+        
+        // Pour les paiements en espèces, vérifier que la livraison est complétée
+        if (methode == Paiement.MethodePaiement.ESPECES) {
+            Commande commande = paiement.getCommande();
+            if (commande == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Commande introuvable pour ce paiement");
+            }
+            
+            Livraison livraison = commande.getLivraison();
+            if (livraison == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Le paiement en especes ne peut etre confirme avant la creation de la livraison");
+            }
+            
+            if (livraison.getStatut() != Livraison.StatutLivraison.LIVREE) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Le paiement en especes ne peut etre confirme avant la completion de la livraison");
+            }
+        }
     }
 
     // ============================================================

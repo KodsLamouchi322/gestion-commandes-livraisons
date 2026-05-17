@@ -15,6 +15,7 @@ import { Fournisseurs } from './components/fournisseurs/fournisseurs';
 import { Produits } from './components/produits/produits';
 import { BonsCommande } from './components/bons-commande/bons-commande';
 import { AvisAdmin } from './components/avis/avis';
+import { Stock } from './components/stock/stock';
 import { Categories } from './components/categories/categories';
 import { PaiementSuccess } from './components/paiement-success/paiement-success';
 import { PaiementCancel } from './components/paiement-cancel/paiement-cancel';
@@ -40,6 +41,7 @@ const routes: Routes = [
             { path: 'categories', component: Categories },
             { path: 'fournisseurs', component: Fournisseurs },
             { path: 'bons-commande', component: BonsCommande },
+            { path: 'stock', component: Stock },
             { path: 'avis', component: AvisAdmin },
         ]
     },
@@ -61,7 +63,9 @@ const routes: Routes = [
 ];
 
 @NgModule({
-    imports: [RouterModule.forRoot(routes)],
+    imports: [RouterModule.forRoot(routes, {
+        onSameUrlNavigation: 'reload'
+    })],
     exports: [RouterModule]
 })
 export class AppRoutingModule { }

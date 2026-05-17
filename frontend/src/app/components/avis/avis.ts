@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 import { Avis } from '../../models/models';
@@ -19,7 +19,8 @@ export class AvisAdmin implements OnInit {
 
     constructor(
         private api: ApiService,
-        private notificationService: NotificationService
+        private notificationService: NotificationService,
+        private cdr: ChangeDetectorRef
     ) { }
 
     ngOnInit(): void { this.charger(); }
@@ -31,10 +32,12 @@ export class AvisAdmin implements OnInit {
                 this.avis = a;
                 this.currentPage = 1;
                 this.isLoading = false;
+                this.cdr.detectChanges();
             },
             error: () => {
                 this.notificationService.error('Erreur lors du chargement des avis');
                 this.isLoading = false;
+                this.cdr.detectChanges();
             }
         });
     }
@@ -67,7 +70,7 @@ export class AvisAdmin implements OnInit {
     }
 
     supprimer(id?: number): void {
-        if (!id || !confirm('Confirmer la suppression ?')) return;
+        if (!id) return;
         const snapshot = [...this.avis];
         this.avis = this.avis.filter(a => a.id != id);
         this.api.supprimerAvis(id).subscribe({

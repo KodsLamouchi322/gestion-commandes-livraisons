@@ -156,3 +156,62 @@
     flex-wrap: wrap;
     margin-top: 1.5rem;
 }
+
+/* Stock Alerts Section */
+.stock-alerts-section {
+    margin-top: 2rem;
+}
+
+.stock-alerts-section h2 {
+    margin-bottom: 1rem;
+    color: var(--error);
+}
+
+.alert-card {
+    overflow-x: auto;
+}
+
+.alert-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.alert-table thead {
+    background: var(--bg-secondary);
+}
+
+.alert-table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border);
+}
+
+.alert-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.alert-table tbody tr:hover {
+    background: var(--bg-secondary);
+}
+
+.stat-card--alert {
+    border: 2px solid var(--error);
+    animation: pulse-alert 2s infinite;
+}
+
+@keyframes pulse-alert {
+    0%, 100% { border-color: var(--error); }
+    50% { border-color: var(--error-light); }
+}
+
+.bg-error {
+    background: linear-gradient(135deg, var(--error) 0%, var(--error-dark) 100%);
+    color: white;
+}
+
+.stat-meter-error span {
+    background: linear-gradient(90deg, var(--error) 0%, var(--error-dark) 100%);
+}

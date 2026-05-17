@@ -23,9 +23,9 @@ public class Paiement {
     @Column(name = "date_paiement", nullable = false)
     private LocalDateTime datePaiement;
 
-    // Montant payé (obligatoire, doit être positif)
+    // Montant payé (obligatoire, doit être positif ou nul)
     @NotNull(message = "Le montant est obligatoire")
-    @Positive(message = "Le montant doit être positif")
+    @PositiveOrZero(message = "Le montant doit être positif ou nul")
     @Column(name = "montant", nullable = false)
     private Double montant;
 
@@ -51,7 +51,7 @@ public class Paiement {
     public enum MethodePaiement {
         CARTE,      // Carte bancaire
         ESPECES,    // Espèces
-        VIREMENT    // Virement bancaire
+        VIREMENT    // Virement bancaire (désactivé côté client)
     }
 
     /**
@@ -60,6 +60,7 @@ public class Paiement {
     public enum StatutPaiement {
         EN_ATTENTE,  // Paiement en attente
         VALIDE,      // Paiement validé
-        REFUSE       // Paiement refusé
+        REFUSE,      // Paiement refusé
+        ANNULE       // Paiement annulé (suite à l'annulation de la commande)
     }
 }

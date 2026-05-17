@@ -15,7 +15,13 @@ import java.util.List;
 public interface AvisRepository extends JpaRepository<Avis, Integer> {
     List<Avis> findByProduitId(Integer produitId);
     List<Avis> findByClientId(Integer clientId);
+
+    boolean existsByClient_IdAndProduit_Id(Integer clientId, Integer produitId);
     
     @Query("SELECT AVG(a.note) FROM Avis a WHERE a.produit.id = :produitId")
     Double findNoteMoyenneByProduitId(@Param("produitId") Integer produitId);
+
+    /** Pour enrichir le catalogue : [0] = produitId, [1] = moyenne (Double). */
+    @Query("SELECT a.produit.id, AVG(a.note) FROM Avis a GROUP BY a.produit.id")
+    List<Object[]> findAverageNoteGroupByProduitId();
 }

@@ -45,3 +45,15 @@
     margin-bottom: 1rem;
     opacity: 0.5;
 }
+
+.admin-hint {
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+}
+
+.admin-hint strong {
+    color: var(--text-dark);
+}

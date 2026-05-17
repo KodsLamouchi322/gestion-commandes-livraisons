@@ -13,6 +13,7 @@ import java.util.List;
 /**
  * Service LigneCommande - Gère la logique métier des lignes de commande
  */
+@SuppressWarnings("null")
 @Service
 public class LigneCommandeService {
 

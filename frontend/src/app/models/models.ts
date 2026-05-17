@@ -57,6 +57,7 @@ export interface LignePanier {
     id?: number;
     produit: Produit;
     quantite: number;
+    prixUnitaire?: number;  // prix au moment de l'ajout (depuis LignePanier.prixUnitaire backend)
     sousTotal?: number;
 }
 
@@ -87,6 +88,8 @@ export interface Commande {
     montantTotal?: number;
     adresseLivraison?: string;
     lignesCommande?: LigneCommandeDTO[];
+    /** Résumé du paiement (CommandeDTO côté backend) */
+    paiement?: { methodePaiement?: string; statut?: string };
 }
 
 // ── LIGNE COMMANDE ────────────────────────────────────────────
@@ -139,7 +142,7 @@ export interface Livraison {
     dateLivraison?: string;
     adresse?: string;
     cout: number;
-    statut?: 'EN_PREPARATION' | 'EN_TRANSIT' | 'LIVREE';
+    statut?: 'EN_PREPARATION' | 'EXPEDIEE' | 'LIVREE';
 }
 
 // ── PAIEMENT ──────────────────────────────────────────────────

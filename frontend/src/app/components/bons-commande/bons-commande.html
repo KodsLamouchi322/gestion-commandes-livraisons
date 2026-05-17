@@ -1,86 +1,135 @@
 <div class="page-header">
-  <h1 class="page-title">Bons de Commande Fournisseur 📜</h1>
-  <button class="btn btn-primary" (click)="ouvrirCreateModal()">+ Nouveau bon</button>
+  <div>
+    <h1 class="page-title">Bons de Commande Fournisseur 📜</h1>
+    <p>Gérez les commandes auprès de vos fournisseurs</p>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="ouvrirCreateModal()">+ Nouveau Bon de Commande</button>
 </div>
 
-<div *ngIf="isLoading" class="loader">
-  Chargement...
+<div *ngIf="isLoading" class="loader" role="status" aria-live="polite">
+  Chargement des bons de commande...
 </div>
 
-<div *ngIf="!isLoading" class="glass-card">
-  <table class="modern-table">
-    <thead><tr><th>ID</th><th>Fournisseur</th><th>Date</th><th>Statut</th><th>Action</th></tr></thead>
+<div *ngIf="!isLoading" class="glass-card table-container">
+  <div class="empty-state" *ngIf="bons.length === 0">
+    <div class="empty-icon">📭</div>
+    <h3>Aucun bon de commande trouvé</h3>
+  </div>
+
+  <table class="modern-table" *ngIf="bons.length > 0">
+    <thead>
+      <tr>
+        <th>N° Bon</th>
+        <th>Fournisseur</th>
+        <th>Date Création</th>
+        <th>Montant Total</th>
+        <th>Statut</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
     <tbody>
-      <ng-container *ngFor="let bc of bons">
-        <tr>
-          <td>{{bc.id}}</td>
-          <td>{{bc.fournisseur.nom}}</td>
-          <td>{{bc.dateCreation | date}}</td>
-          <td><strong>{{bc.statut}}</strong></td>
-          <td>
-            <div class="row-actions" *ngIf="bc.statut === 'EN_ATTENTE'">
-              <button class="btn btn-sm btn-outline" (click)="ouvrirLigneModal(bc.id || 0)">+ Ajouter ligne</button>
-              <button class="btn btn-sm btn-success" (click)="recevoir(bc.id || 0)">✓ Marquer Reçu</button>
-            </div>
-            <span *ngIf="bc.statut !== 'EN_ATTENTE'">—</span>
-          </td>
-        </tr>
-      </ng-container>
+      <tr *ngFor="let bc of bons">
+        <td><strong>#BC-{{ bc.id }}</strong></td>
+        <td>{{ bc.fournisseur?.nom || getFournisseurNom(bc.fournisseur?.id) }}</td>
+        <td>{{ bc.dateCreation | date:'short' }}</td>
+        <td><strong>{{ bc.montantTotal | currency:'EUR':'symbol' }}</strong></td>
+        <td>
+          <span [ngClass]="getBadgeClass(bc.statut)">{{ bc.statut }}</span>
+        </td>
+        <td>
+          <div class="action-buttons">
+            <button type="button" class="btn btn-primary btn-sm" *ngIf="bc.statut === 'EN_ATTENTE'"
+              [attr.aria-label]="'Envoyer le bon de commande ' + bc.id"
+              (click)="envoyer(bc.id)" [disabled]="processingBonId === bc.id">
+              Envoyer
+            </button>
+            <button type="button" class="btn btn-success btn-sm" *ngIf="bc.statut === 'ENVOYE'"
+              [attr.aria-label]="'Marquer le bon de commande ' + bc.id + ' comme reçu'"
+              (click)="recevoir(bc.id)" [disabled]="processingBonId === bc.id">
+              Marquer Reçu
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" *ngIf="bc.statut === 'EN_ATTENTE'"
+              [attr.aria-label]="'Annuler le bon de commande ' + bc.id"
+              (click)="annuler(bc.id)" [disabled]="processingBonId === bc.id">
+              Annuler
+            </button>
+            <span *ngIf="bc.statut === 'RECU' || bc.statut === 'ANNULE'" class="text-muted">—</span>
+            <span class="inline-progress" *ngIf="processingBonId === bc.id" role="status" aria-live="polite">
+              Traitement...
+            </span>
+          </div>
+        </td>
+      </tr>
     </tbody>
   </table>
 </div>
 
-<div class="modal-backdrop" *ngIf="isCreateModalOpen" (click)="fermerCreateModal()"></div>
-<div class="modal-dialog glass-card" *ngIf="isCreateModalOpen">
-  <div class="modal-header">
-    <h2>Créer un nouveau bon</h2>
-    <span class="close-btn" (click)="fermerCreateModal()">&times;</span>
-  </div>
-  <div class="modal-content">
-    <select class="form-control" [(ngModel)]="nouveauBcFournisseurId">
-      <option value="0">-- Choisir un fournisseur --</option>
-      <option *ngFor="let f of fournisseurs" [value]="f.id">{{f.nom}}</option>
-    </select>
-  </div>
-  <div class="modal-footer">
-    <button class="btn btn-outline" (click)="fermerCreateModal()">Annuler</button>
-    <button class="btn btn-primary" (click)="creerBon()" [disabled]="isSaving">
-        <span *ngIf="isSaving">⏳...</span>
-        <span *ngIf="!isSaving">Créer Bon</span>
-    </button>
-  </div>
-</div>
+<!-- Modal création : tableau dense + pied fixe (pas besoin de scroller pour valider) -->
+<div class="bc-backdrop" *ngIf="isCreateModalOpen" (click)="fermerCreateModal()" role="presentation"></div>
+<div class="bc-create" *ngIf="isCreateModalOpen" role="dialog" aria-modal="true" aria-labelledby="bc-create-title" (click)="$event.stopPropagation()">
+  <header class="bc-create__head">
+    <h2 id="bc-create-title">Créer un bon de commande</h2>
+    <button type="button" class="close-btn" (click)="fermerCreateModal()" aria-label="Fermer">&times;</button>
+  </header>
 
-<div class="modal-backdrop" *ngIf="isLigneModalOpen" (click)="fermerLigneModal()"></div>
-<div class="modal-dialog glass-card" *ngIf="isLigneModalOpen && selectedBcId">
-  <div class="modal-header">
-    <h2>Ajouter une ligne au bon #{{ selectedBcId }}</h2>
-    <span class="close-btn" (click)="fermerLigneModal()">&times;</span>
-  </div>
-  <div class="modal-content">
-    <div class="ligne-fields">
-      <div class="form-group">
-        <label class="form-label">Produit</label>
-        <select class="form-control" [(ngModel)]="ligneForms[selectedBcId].produitId">
-          <option [value]="0">-- Choisir un produit --</option>
-          <option *ngFor="let p of produits" [value]="p.id">{{ p.nom }}</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Quantité</label>
-        <input class="form-control" type="number" min="1" [(ngModel)]="ligneForms[selectedBcId].quantite">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Prix d'achat</label>
-        <input class="form-control" type="number" min="0.01" step="0.01" [(ngModel)]="ligneForms[selectedBcId].prixAchat">
-      </div>
+  <div class="bc-create__body">
+    <p class="bc-create__hint">Choisissez le fournisseur, puis une ou plusieurs lignes (produit, quantité, prix d’achat unitaire).</p>
+
+    <div class="bc-field">
+      <label for="fournisseurSelect">Fournisseur</label>
+      <select id="fournisseurSelect" class="form-control bc-select" [(ngModel)]="nouveauBcFournisseurId">
+        <option [ngValue]="0">— Choisir un fournisseur —</option>
+        <option *ngFor="let f of fournisseurs" [ngValue]="f.id">{{ f.nom }}</option>
+      </select>
     </div>
+
+    <div class="bc-lines-scroll">
+      <table class="bc-lines-table">
+        <thead>
+          <tr>
+            <th class="bc-col-n">#</th>
+            <th>Produit</th>
+            <th class="bc-col-q">Qté</th>
+            <th class="bc-col-p">Prix achat €</th>
+            <th class="bc-col-s">Sous-total</th>
+            <th class="bc-col-x" aria-label="Supprimer la ligne"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ligne of lignesNouveau; let i = index">
+            <td class="bc-col-n">{{ i + 1 }}</td>
+            <td>
+              <select class="form-control bc-select" [(ngModel)]="ligne.produitId" [attr.aria-label]="'Produit ligne ' + (i + 1)">
+                <option [ngValue]="0">— Produit —</option>
+                <option *ngFor="let p of produits" [ngValue]="p.id">{{ p.nom }}</option>
+              </select>
+            </td>
+            <td class="bc-col-q">
+              <input type="number" class="form-control bc-input-num" [(ngModel)]="ligne.quantite" min="1" step="1" [attr.aria-label]="'Quantité ligne ' + (i + 1)">
+            </td>
+            <td class="bc-col-p">
+              <input type="number" class="form-control bc-input-num" [(ngModel)]="ligne.prixAchat" min="0" step="0.01" [attr.aria-label]="'Prix achat ligne ' + (i + 1)">
+            </td>
+            <td class="bc-col-s bc-num">{{ (ligne.quantite * ligne.prixAchat) | currency:'EUR':'symbol' }}</td>
+            <td class="bc-col-x">
+              <button type="button" class="bc-btn-remove" (click)="supprimerLigneNouveau(i)" *ngIf="lignesNouveau.length > 1" [attr.aria-label]="'Supprimer la ligne ' + (i + 1)">✕</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button type="button" class="btn btn-outline btn-sm bc-add-line" (click)="ajouterLigneNouveau()">+ Ajouter une ligne</button>
   </div>
-  <div class="modal-footer">
-    <button class="btn btn-outline" (click)="fermerLigneModal()">Annuler</button>
-    <button class="btn btn-primary" (click)="ajouterLigne(selectedBcId)" [disabled]="isSaving">
-        <span *ngIf="isSaving">⏳...</span>
-        <span *ngIf="!isSaving">Ajouter la ligne</span>
-    </button>
-  </div>
+
+  <footer class="bc-create__foot">
+    <div class="bc-create__total">
+      <span class="bc-create__total-label">Total TTC estimé</span>
+      <strong class="bc-create__total-val">{{ calculerMontantTotal() | currency:'EUR':'symbol' }}</strong>
+    </div>
+    <div class="bc-create__actions">
+      <button type="button" class="btn btn-outline" (click)="fermerCreateModal()">Annuler</button>
+      <button type="button" class="btn btn-primary" (click)="creerBon()">Créer le bon</button>
+    </div>
+  </footer>
 </div>

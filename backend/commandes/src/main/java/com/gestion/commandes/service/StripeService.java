@@ -17,13 +17,14 @@ import org.springframework.web.server.ResponseStatusException;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 
+@SuppressWarnings("null")
 @Service
 public class StripeService {
 
     @Value("${stripe.secret.key:}")
     private String stripeSecretKey;
 
-    @Value("${app.frontend.url:http://localhost:4200}")
+    @Value("${app.frontend.url:http://localhost:8080}")
     private String frontendUrl;
 
     @Autowired

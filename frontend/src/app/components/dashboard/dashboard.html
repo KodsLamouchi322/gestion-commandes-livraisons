@@ -75,6 +75,50 @@
         </div>
     </div>
 
+    <!-- Carte Alertes Stock -->
+    <div class="stat-card glass-card glass-card--hoverable" [class.stat-card--alert]="statistiques.alertesStock > 0">
+        <div class="stat-icon" [class.bg-error]="statistiques.alertesStock > 0" [class.bg-success]="statistiques.alertesStock === 0">
+            {{ statistiques.alertesStock > 0 ? '⚠️' : '✅' }}
+        </div>
+        <div class="stat-info">
+            <h3>Alertes Stock</h3>
+            <h2>{{ statistiques.alertesStock }}</h2>
+            <div class="stat-meter" [class.stat-meter-error]="statistiques.alertesStock > 0" [class.stat-meter-success]="statistiques.alertesStock === 0">
+                <span [style.width.%]="statistiques.alertesStock > 0 ? 100 : 0"></span>
+            </div>
+            <small class="stat-meta">{{ statistiques.alertesStock > 0 ? 'Produits à réapprovisionner' : 'Stock OK' }}</small>
+        </div>
+    </div>
+
+</div>
+
+<!-- Alertes Stock Détaillées -->
+<div class="stock-alerts-section" *ngIf="produitsStockFaible.length > 0">
+    <h2>🚨 Produits en Stock Faible</h2>
+    <div class="alert-card glass-card">
+        <table class="alert-table">
+            <thead>
+                <tr>
+                    <th>Produit</th>
+                    <th>Stock Actuel</th>
+                    <th>Catégorie</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let p of produitsStockFaible">
+                    <td><strong>{{ p.nom }}</strong></td>
+                    <td>
+                        <span class="badge badge-error">{{ p.quantiteEnStock }} unités</span>
+                    </td>
+                    <td>{{ p.categorie?.nom || '—' }}</td>
+                    <td>
+                        <a routerLink="/admin/bons-commande" class="btn btn-sm btn-primary">📦 Réapprovisionner</a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Boutons d'actions rapides -->

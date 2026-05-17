@@ -11,7 +11,7 @@
     <button type="button" class="tab-btn" [class.active]="activeTab==='panier'" (click)="activeTab='panier'" role="tab" [attr.aria-selected]="activeTab==='panier'" aria-label="Ouvrir l'onglet panier">
         <span class="tab-icon">🛒</span><span class="tab-label">Panier</span> <span class="badge-count" *ngIf="panierCount>0">{{ panierCount }}</span>
     </button>
-    <button type="button" class="tab-btn" [class.active]="activeTab==='favoris'" (click)="activeTab='favoris'" role="tab" [attr.aria-selected]="activeTab==='favoris'" aria-label="Ouvrir l'onglet favoris"><span class="tab-icon">❤️</span><span class="tab-label">Favoris</span> <span class="badge-count" *ngIf="favoris.count>0">{{ favoris.count }}</span></button>
+    <button type="button" class="tab-btn" [class.active]="activeTab==='favoris'" (click)="activerFavoris()" role="tab" [attr.aria-selected]="activeTab==='favoris'" aria-label="Ouvrir l'onglet favoris"><span class="tab-icon">❤️</span><span class="tab-label">Favoris</span> <span class="badge-count" *ngIf="favoris.count>0">{{ favoris.count }}</span></button>
     <button type="button" class="tab-btn" [class.active]="activeTab==='commandes'" (click)="activeTab='commandes'" role="tab" [attr.aria-selected]="activeTab==='commandes'" aria-label="Ouvrir l'onglet commandes"><span class="tab-icon">📦</span><span class="tab-label">Mes Commandes</span></button>
     <button type="button" class="tab-btn" [class.active]="activeTab==='profil'" (click)="activeTab='profil'" role="tab" [attr.aria-selected]="activeTab==='profil'" aria-label="Ouvrir l'onglet profil"><span class="tab-icon">⚙️</span><span class="tab-label">Profil</span></button>
 </div>
@@ -24,7 +24,7 @@
         <input class="form-control" [(ngModel)]="recherche" (ngModelChange)="filtrer()" placeholder="🔍 Rechercher un produit..." aria-label="Rechercher un produit">
         <select class="form-control" [(ngModel)]="categorieFiltre" (ngModelChange)="filtrer()" aria-label="Filtrer par catégorie">
             <option [ngValue]="undefined">Toutes les catégories</option>
-            <option *ngFor="let c of categories" [value]="c.id">{{ c.nom }}</option>
+            <option *ngFor="let c of categories" [ngValue]="c.id">{{ c.nom }}</option>
         </select>
     </div>
 
@@ -35,21 +35,28 @@
                 <div *ngIf="!p.imageUrl" class="produit-img-placeholder">📦</div>
             </div>
             <div class="produit-info">
+                <button
+                    type="button"
+                    class="btn-icon produit-favori-btn"
+                    (click)="toggleFavori(p)"
+                    [title]="favoris.isFavori(p.id!) ? 'Retirer des favoris' : 'Ajouter aux favoris'">
+                    {{ favoris.isFavori(p.id!) ? '❤️' : '🤍' }}
+                </button>
                 <div class="produit-categorie" *ngIf="p.categorie">{{ p.categorie.nom }}</div>
                 <h3 class="produit-nom" (click)="ouvrirDetail(p)">{{ p.nom }}</h3>
                 <p class="produit-desc">{{ p.description | slice:0:80 }}{{ (p.description?.length || 0) > 80 ? '...' : '' }}</p>
-                <div class="produit-note" *ngIf="p.noteMoyenne">
-                    <span *ngFor="let e of etoiles(p.noteMoyenne)">{{ e }}</span>
-                    <small>({{ p.noteMoyenne }}/5)</small>
+                <div class="produit-note" aria-label="Note clients">
+                    <ng-container *ngIf="p.noteMoyenne; else noteCatalogueVide">
+                        <span *ngFor="let e of etoiles(p.noteMoyenne)">{{ e }}</span>
+                        <small class="produit-note-chiffre">({{ p.noteMoyenne | number:'1.0-1' }}/5)</small>
+                    </ng-container>
+                    <ng-template #noteCatalogueVide><span class="produit-note-sans">Pas encore noté</span></ng-template>
                 </div>
                 <div class="produit-footer">
                     <strong class="produit-prix">{{ p.prixUnitaire | currency:'EUR':'symbol' }}</strong>
                     <div class="produit-actions">
-                        <button class="btn-icon" (click)="toggleFavori(p)" [title]="favoris.isFavori(p.id!) ? 'Retirer des favoris' : 'Ajouter aux favoris'">
-                            {{ favoris.isFavori(p.id!) ? '❤️' : '🤍' }}
-                        </button>
                         <button type="button" class="btn btn-primary btn-sm" (click)="ajouterAuPanier(p)" [disabled]="p.quantiteEnStock === 0 || isPanierBusy" [attr.aria-label]="'Ajouter ' + p.nom + ' au panier'">
-                            {{ p.quantiteEnStock === 0 ? 'Rupture' : '🛒 Ajouter' }}
+                            {{ p.quantiteEnStock === 0 ? 'Rupture' : (isPanierBusy ? '⏳ Ajout...' : '🛒 Ajouter') }}
                         </button>
                     </div>
                 </div>
@@ -71,23 +78,23 @@
             <div *ngIf="!l.produit.imageUrl" class="panier-img-placeholder">📦</div>
             <div class="panier-info">
                 <strong>{{ l.produit.nom }}</strong>
-                <span>{{ l.produit.prixUnitaire | currency:'EUR':'symbol' }} / unité</span>
+                <span>{{ (l.prixUnitaire ?? l.produit.prixUnitaire ?? 0) | currency:'EUR':'symbol' }} / unité</span>
             </div>
             <div class="panier-qte">
                 <button class="btn-qte" (click)="modifierQte(l, -1)" [disabled]="isPanierBusy">−</button>
                 <span>{{ l.quantite }}</span>
                 <button class="btn-qte" (click)="modifierQte(l, 1)" [disabled]="isPanierBusy">+</button>
             </div>
-            <strong>{{ l.produit.prixUnitaire * l.quantite | currency:'EUR':'symbol' }}</strong>
+            <strong>{{ (l.prixUnitaire ?? l.produit.prixUnitaire ?? 0) * l.quantite | currency:'EUR':'symbol' }}</strong>
             <button type="button" class="btn-icon" (click)="supprimerLigne(l)" [disabled]="isPanierBusy" [attr.aria-label]="'Supprimer ' + l.produit.nom + ' du panier'">🗑️</button>
         </div>
         <div class="panier-total">
             <strong>Total : {{ totalPanier() | currency:'EUR':'symbol' }}</strong>
         </div>
         <div class="panier-actions">
-            <button type="button" class="btn btn-outline" (click)="viderPanier()" [disabled]="isPanierBusy || panier.lignes.length===0">Vider le panier</button>
-            <button type="button" class="btn btn-primary" (click)="commander()" [disabled]="isPanierBusy || panier.lignes.length===0">
-                {{ isPanierBusy ? '⏳ Finalisation...' : '✅ Passer la commande' }}
+            <button type="button" class="btn btn-outline" (click)="viderPanier()" [disabled]="isPanierBusy || isCommandeBusy || panier.lignes.length===0">Vider le panier</button>
+            <button type="button" class="btn btn-primary" (click)="commander()" [disabled]="isCommandeBusy || panier.lignes.length===0">
+                {{ isCommandeBusy ? '⏳ Finalisation...' : '✅ Passer la commande' }}
             </button>
         </div>
     </div>
@@ -107,6 +114,13 @@
             </div>
             <div class="produit-info">
                 <h3>{{ p.nom }}</h3>
+                <div class="produit-note produit-note--compact" aria-label="Note clients">
+                    <ng-container *ngIf="p.noteMoyenne; else noteFavoriVide">
+                        <span *ngFor="let e of etoiles(p.noteMoyenne)">{{ e }}</span>
+                        <small class="produit-note-chiffre">({{ p.noteMoyenne | number:'1.0-1' }}/5)</small>
+                    </ng-container>
+                    <ng-template #noteFavoriVide><span class="produit-note-sans">Pas encore noté</span></ng-template>
+                </div>
                 <strong class="produit-prix">{{ p.prixUnitaire | currency:'EUR':'symbol' }}</strong>
                 <div class="produit-actions mt-2">
                     <button class="btn-icon" (click)="toggleFavori(p)">❤️</button>
@@ -124,18 +138,45 @@
     <h2>📦 Mes Commandes</h2>
     <p *ngIf="mesCommandes.length===0" class="text-center text-muted p-3">Aucune commande.</p>
     <table class="modern-table" *ngIf="mesCommandes.length>0">
-        <thead><tr><th>N°</th><th>Montant</th><th>Statut</th><th>Action</th></tr></thead>
+        <thead><tr><th>N°</th><th>Montant</th><th>Statut</th><th>Paiement</th></tr></thead>
         <tbody>
             <tr *ngFor="let c of mesCommandes">
                 <td><strong>#{{ c.id }}</strong></td>
                 <td>{{ c.montantTotal | currency:'EUR':'symbol' }}</td>
                 <td><span [ngClass]="getBadgeCmd(c.statut)">{{ c.statut }}</span></td>
                 <td>
+                    <!-- Aucun paiement : bouton Payer -->
                     <button type="button" class="btn btn-success btn-sm"
-                        *ngIf="c.statut==='EN_ATTENTE' || c.statut==='VALIDEE'"
+                        *ngIf="!c.paiement && (c.statut==='EN_ATTENTE' || c.statut==='VALIDEE')"
                         [attr.aria-label]="'Payer la commande ' + c.id"
                         (click)="initierPaiement(c)">💳 Payer</button>
-                    <span class="text-muted" *ngIf="c.statut!=='EN_ATTENTE' && c.statut!=='VALIDEE'">—</span>
+                    
+                    <!-- Paiement en espèces EN_ATTENTE -->
+                    <span class="badge badge-warning" 
+                        *ngIf="c.paiement && c.paiement.statut==='EN_ATTENTE' && c.paiement.methodePaiement==='ESPECES'">
+                        💵 À la livraison
+                    </span>
+                    
+                    <!-- Paiement carte EN_ATTENTE -->
+                    <span class="badge badge-warning" 
+                        *ngIf="c.paiement && c.paiement.statut==='EN_ATTENTE' && c.paiement.methodePaiement==='CARTE'">
+                        ⏳ En attente
+                    </span>
+                    
+                    <!-- Paiement VALIDE -->
+                    <span class="badge badge-success" 
+                        *ngIf="c.paiement && c.paiement.statut==='VALIDE'">
+                        ✅ Payé
+                    </span>
+                    
+                    <!-- Paiement ECHOUE -->
+                    <button type="button" class="btn btn-warning btn-sm"
+                        *ngIf="c.paiement && c.paiement.statut==='ECHOUE'"
+                        (click)="initierPaiement(c)">🔄 Réessayer</button>
+                    
+                    <!-- Commande annulée ou livrée sans paiement -->
+                    <span class="text-muted" 
+                        *ngIf="!c.paiement && c.statut!=='EN_ATTENTE' && c.statut!=='VALIDEE'">—</span>
                 </td>
             </tr>
         </tbody>
@@ -184,9 +225,15 @@
         <div class="detail-info">
             <div class="produit-categorie" *ngIf="produitDetail.categorie">{{ produitDetail.categorie.nom }}</div>
             <p class="detail-desc">{{ produitDetail.description }}</p>
-            <div class="detail-note" *ngIf="produitDetail.noteMoyenne">
-                <span *ngFor="let e of etoiles(produitDetail.noteMoyenne)">{{ e }}</span>
-                <small>{{ produitDetail.noteMoyenne }}/5 ({{ avisDetail.length }} avis)</small>
+            <div class="detail-note" aria-label="Note moyenne et nombre d'avis">
+                <ng-container *ngIf="produitDetail.noteMoyenne; else noteDetailVide">
+                    <span *ngFor="let e of etoiles(produitDetail.noteMoyenne)">{{ e }}</span>
+                    <small>{{ produitDetail.noteMoyenne | number:'1.0-1' }}/5 · {{ avisDetail.length }} avis</small>
+                </ng-container>
+                <ng-template #noteDetailVide>
+                    <span class="produit-note-sans">Pas encore noté</span>
+                    <small *ngIf="avisDetail.length > 0" class="detail-note-avis"> · {{ avisDetail.length }} avis</small>
+                </ng-template>
             </div>
             <h2 class="detail-prix">{{ produitDetail.prixUnitaire | currency:'EUR':'symbol' }}</h2>
             <p class="stock-info" [style.color]="produitDetail.quantiteEnStock > 0 ? 'var(--success)' : 'var(--danger)'">
@@ -247,8 +294,7 @@
             <label class="form-label">Moyen de paiement</label>
             <select class="form-control" [(ngModel)]="modePaiement" aria-label="Sélectionner le mode de paiement">
                 <option value="CARTE">💳 Carte bancaire</option>
-                <option value="ESPECES">Espèces</option>
-                <option value="VIREMENT">Virement</option>
+                <option value="ESPECES">💵 Espèces</option>
             </select>
         </div>
     </div>

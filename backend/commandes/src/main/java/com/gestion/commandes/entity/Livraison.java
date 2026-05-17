@@ -55,7 +55,8 @@ public class Livraison {
      */
     public enum StatutLivraison {
         EN_PREPARATION,  // Livraison en préparation
-        EN_TRANSIT,      // Livraison en transit
-        LIVREE           // Livraison effectuée
+        EXPEDIEE,        // Livraison expédiée
+        LIVREE,          // Livraison effectuée
+        ANNULEE          // Livraison annulée
     }
 }

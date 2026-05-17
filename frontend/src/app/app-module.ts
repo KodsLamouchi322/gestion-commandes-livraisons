@@ -1,5 +1,6 @@
-import { NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { NgModule, provideBrowserGlobalErrorListeners, ErrorHandler } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { CommonModule } from '@angular/common';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
@@ -25,6 +26,7 @@ import { PaiementSuccess } from './components/paiement-success/paiement-success'
 import { PaiementCancel } from './components/paiement-cancel/paiement-cancel';
 import { AuthInterceptor } from './interceptors/auth.interceptor';
 import { NotificationComponent } from './components/notification/notification.component';
+import { GlobalErrorHandler } from './services/global-error-handler';
 
 @NgModule({
     declarations: [
@@ -34,13 +36,14 @@ import { NotificationComponent } from './components/notification/notification.co
         AvisAdmin, Categories, PaiementSuccess, PaiementCancel,
     ],
     imports: [
-        BrowserModule, AppRoutingModule, HttpClientModule,
+        BrowserModule, CommonModule, AppRoutingModule, HttpClientModule,
         FormsModule, ReactiveFormsModule,
         NotificationComponent,
     ],
     providers: [
         provideBrowserGlobalErrorListeners(),
         { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+        { provide: ErrorHandler, useClass: GlobalErrorHandler },
     ],
     bootstrap: [App],
 })

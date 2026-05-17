@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
 import { NotificationService } from '../../services/notification.service';
 import { Categorie, Produit } from '../../models/models';
@@ -24,13 +24,17 @@ export class Produits implements OnInit {
 
     constructor(
         private api: ApiService,
-        private notificationService: NotificationService
+        private notificationService: NotificationService,
+        private cdr: ChangeDetectorRef
     ) { }
 
     ngOnInit(): void {
         this.charger();
         this.api.getCategories().subscribe({
-            next: (c) => this.categories = c,
+            next: (c) => {
+                this.categories = c;
+                this.cdr.detectChanges();
+            },
             error: () => this.notificationService.error('Erreur chargement catégories')
         });
     }
@@ -41,10 +45,12 @@ export class Produits implements OnInit {
             next: (p) => {
                 this.produits = [...p];
                 this.isLoading = false;
+                this.cdr.detectChanges();
             },
             error: () => {
                 this.notificationService.error('Erreur lors du chargement des produits');
-                this.isLoading = false;  // Fix bug écran bloqué
+                this.isLoading = false;
+                this.cdr.detectChanges();
             }
         });
     }
@@ -78,22 +84,26 @@ export class Produits implements OnInit {
                             this.notificationService.success('Produit enregistré avec image !');
                             this.charger();
                             this.fermer();
+                            this.cdr.detectChanges();
                         },
                         error: () => {
                             this.notificationService.error('Erreur lors de l\'upload de l\'image');
                             this.charger();
                             this.fermer();
+                            this.cdr.detectChanges();
                         }
                     });
                 } else {
                     this.notificationService.success(this.editMode ? 'Produit modifié !' : 'Produit créé !');
                     this.charger();
                     this.fermer();
+                    this.cdr.detectChanges();
                 }
             },
             error: () => {
                 this.notificationService.error('Erreur lors de l\'enregistrement');
                 this.isSaving = false;
+                this.cdr.detectChanges();
             }
         });
     }
@@ -112,25 +122,29 @@ export class Produits implements OnInit {
                 this.uploadingId = null;
                 this.selectedFile = null;
                 this.charger();
+                this.cdr.detectChanges();
             },
             error: () => {
                 this.notificationService.error('Erreur lors de l\'upload');
                 this.uploadingId = null;
+                this.cdr.detectChanges();
             }
         });
     }
 
     supprimer(id?: number): void {
-        if (!id || !confirm('Supprimer ce produit ?')) return;
+        if (!id) return;
         const snapshot = [...this.produits];
         this.produits = this.produits.filter(p => p.id != id);
         this.api.deleteProduit(id).subscribe({
             next: () => {
                 this.notificationService.success('Produit supprimé !');
+                this.cdr.detectChanges();
             },
             error: () => {
                 this.produits = snapshot;
                 this.notificationService.error('Erreur lors de la suppression');
+                this.cdr.detectChanges();
             }
         });
     }

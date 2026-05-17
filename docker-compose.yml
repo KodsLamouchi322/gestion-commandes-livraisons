@@ -29,6 +29,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       JWT_SECRET: change-me-in-production-use-long-random-string-at-least-32-chars
       UPLOAD_DIR: /app/uploads
+      # URL du frontend pour les redirections Stripe (doit correspondre au port Docker)
+      FRONTEND_URL: http://localhost:8080
+      # Définir dans un fichier .env à la racine : STRIPE_SECRET_KEY=sk_test_...
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@gestion.com}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-admin123}
     volumes:
       - uploads_data:/app/uploads
     depends_on:

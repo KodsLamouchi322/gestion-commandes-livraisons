@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
+@SuppressWarnings("null")
 @Service
 public class FournisseurService {
 

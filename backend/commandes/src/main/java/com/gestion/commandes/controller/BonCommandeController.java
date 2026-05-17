@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller BonCommande - Gère les requêtes HTTP pour les bons de commande fournisseur
@@ -56,12 +57,57 @@ public class BonCommandeController {
     }
 
     /**
-     * POST /api/bons-commande - Crée un nouveau bon de commande
+     * POST /api/bons-commande - Crée un nouveau bon de commande avec ses lignes
+     * Request body doit contenir: { bonCommande: {...}, lignes: [...] }
      */
     @PostMapping
-    public ResponseEntity<BonCommande> create(@RequestBody BonCommande bc) {
-        BonCommande nouveau = service.ajouter(bc);
-        return ResponseEntity.ok(nouveau);
+    public ResponseEntity<BonCommande> create(@RequestBody Map<String, Object> request) {
+        try {
+            // Extraire le bon de commande et les lignes de la requête
+            @SuppressWarnings("unchecked")
+            Map<String, Object> bonCommandeData = (Map<String, Object>) request.get("bonCommande");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> lignesData = (List<Map<String, Object>>) request.get("lignes");
+            
+            // Créer le bon de commande
+            BonCommande bc = new BonCommande();
+            if (bonCommandeData.containsKey("fournisseur")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> fournisseurData = (Map<String, Object>) bonCommandeData.get("fournisseur");
+                com.gestion.commandes.entity.Fournisseur fournisseur = new com.gestion.commandes.entity.Fournisseur();
+                fournisseur.setId((Integer) fournisseurData.get("id"));
+                bc.setFournisseur(fournisseur);
+            }
+            
+            // Créer les lignes
+            List<LigneBonCommande> lignes = new java.util.ArrayList<>();
+            for (Map<String, Object> ligneData : lignesData) {
+                LigneBonCommande ligne = new LigneBonCommande();
+                
+                @SuppressWarnings("unchecked")
+                Map<String, Object> produitData = (Map<String, Object>) ligneData.get("produit");
+                com.gestion.commandes.entity.Produit produit = new com.gestion.commandes.entity.Produit();
+                produit.setId((Integer) produitData.get("id"));
+                ligne.setProduit(produit);
+                
+                ligne.setQuantite((Integer) ligneData.get("quantite"));
+                
+                // Gérer le prix d'achat (peut être Double ou Integer)
+                Object prixAchatObj = ligneData.get("prixAchat");
+                if (prixAchatObj instanceof Integer) {
+                    ligne.setPrixAchat(((Integer) prixAchatObj).doubleValue());
+                } else {
+                    ligne.setPrixAchat((Double) prixAchatObj);
+                }
+                
+                lignes.add(ligne);
+            }
+            
+            BonCommande nouveau = service.creer(bc, lignes);
+            return ResponseEntity.ok(nouveau);
+        } catch (ClassCastException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     /**
@@ -107,6 +153,33 @@ public class BonCommandeController {
     @PutMapping("/{id}/receptionner")
     public ResponseEntity<BonCommande> receptionner(@PathVariable Integer id) {
         BonCommande bon = service.validerReception(id);
+        return ResponseEntity.ok(bon);
+    }
+
+    /**
+     * PUT /api/bons-commande/{id}/envoyer - Marque un bon de commande comme envoyé au fournisseur
+     */
+    @PutMapping("/{id}/envoyer")
+    public ResponseEntity<BonCommande> envoyer(@PathVariable Integer id) {
+        BonCommande bon = service.changerStatut(id, BonCommande.Statut.ENVOYE);
+        return ResponseEntity.ok(bon);
+    }
+
+    /**
+     * PUT /api/bons-commande/{id}/recevoir - Marque un bon de commande comme reçu et met à jour le stock
+     */
+    @PutMapping("/{id}/recevoir")
+    public ResponseEntity<BonCommande> recevoir(@PathVariable Integer id) {
+        BonCommande bon = service.changerStatut(id, BonCommande.Statut.RECU);
+        return ResponseEntity.ok(bon);
+    }
+
+    /**
+     * PUT /api/bons-commande/{id}/annuler - Annule un bon de commande
+     */
+    @PutMapping("/{id}/annuler")
+    public ResponseEntity<BonCommande> annuler(@PathVariable Integer id) {
+        BonCommande bon = service.changerStatut(id, BonCommande.Statut.ANNULE);
         return ResponseEntity.ok(bon);
     }
 }

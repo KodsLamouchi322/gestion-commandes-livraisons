@@ -3,14 +3,11 @@ package com.gestion.commandes.service;
 import com.gestion.commandes.converter.EntityConverter;
 import com.gestion.commandes.dto.LivraisonDTO;
 import com.gestion.commandes.entity.Commande;
-import com.gestion.commandes.entity.LigneCommande;
 import com.gestion.commandes.entity.Livraison;
-import com.gestion.commandes.entity.Produit;
+import com.gestion.commandes.entity.Paiement;
 import com.gestion.commandes.entity.Transporteur;
 import com.gestion.commandes.repository.CommandeRepository;
-import com.gestion.commandes.repository.LigneCommandeRepository;
 import com.gestion.commandes.repository.LivraisonRepository;
-import com.gestion.commandes.repository.ProduitRepository;
 import com.gestion.commandes.repository.TransporteurRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -28,6 +25,7 @@ import java.util.stream.Collectors;
  * Fonctionnalité clé : quand une livraison passe au statut LIVREE,
  * le stock de chaque produit de la commande est automatiquement mis à jour.
  */
+@SuppressWarnings("null")
 @Service
 public class LivraisonService {
 
@@ -40,12 +38,7 @@ public class LivraisonService {
     @Autowired
     private TransporteurRepository transporteurRepository;
 
-    // Injectés pour la mise à jour automatique du stock
-    @Autowired
-    private LigneCommandeRepository ligneCommandeRepository;
 
-    @Autowired
-    private ProduitRepository produitRepository;
 
     // Converter : entité → DTO
     @Autowired
@@ -76,13 +69,12 @@ public class LivraisonService {
     }
 
     /**
-     * Récupère la livraison d'une commande (retourne un DTO)
+     * Récupère la livraison d'une commande (retourne un DTO ou null si pas de livraison)
      */
     public LivraisonDTO chercherParCommande(Integer commandeId) {
-        Livraison livraison = rep.findByCommandeId(commandeId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Livraison introuvable pour cette commande"));
-        return converter.toLivraisonDTO(livraison);
+        return rep.findByCommandeId(commandeId)
+                .map(converter::toLivraisonDTO)
+                .orElse(null);
     }
 
     /**
@@ -146,6 +138,129 @@ public class LivraisonService {
         return converter.toLivraisonDTO(saved);
     }
 
+    /**
+     * Crée une livraison depuis une commande validée
+     * 
+     * @param commandeId ID de la commande
+     * @param cout Coût de la livraison (défaut 0.0 si null)
+     * @param transporteurId ID du transporteur (optionnel)
+     * @return DTO de la livraison créée
+     * 
+     * Validations:
+     * - La commande doit exister
+     * - Statut commande : EN_ATTENTE ou VALIDEE (création livraison possible avant ou après validation admin)
+     * - Aucune livraison ne doit déjà exister pour cette commande
+     * - Le transporteur doit exister (si fourni)
+     * 
+     * Initialisation:
+     * - Adresse: copiée depuis la commande
+     * - Statut: EN_PREPARATION
+     * - Coût: valeur fournie ou 0.0 par défaut
+     * - Date de livraison estimée: maintenant + 3 jours
+     */
+    @Transactional
+    public LivraisonDTO creerDepuisCommande(Integer commandeId, Double cout, Integer transporteurId) {
+        // 1. Valider que la commande existe
+        Commande commande = commandeRepository.findById(commandeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Commande introuvable"));
+
+        // 2. Statuts autorisés : EN_ATTENTE ou VALIDEE (l'admin peut créer la livraison avant ou après « Valider » la commande).
+        //    Refus si commande annulée, déjà livrée au client, ou déjà marquée expédiée (cohérence logistique).
+        if (commande.getStatut() == Commande.StatutCommande.ANNULEE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Impossible de créer une livraison pour une commande annulée");
+        }
+        if (commande.getStatut() == Commande.StatutCommande.LIVREE
+                || commande.getStatut() == Commande.StatutCommande.EXPEDIEE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Impossible de créer une livraison : la commande est déjà expédiée ou livrée");
+        }
+        if (commande.getStatut() != Commande.StatutCommande.EN_ATTENTE
+                && commande.getStatut() != Commande.StatutCommande.VALIDEE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Statut de commande incompatible avec la création d'une livraison");
+        }
+
+        // 3. Valider qu'aucune livraison n'existe déjà pour cette commande
+        if (rep.existsByCommandeId(commandeId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, 
+                    "Une livraison existe déjà pour cette commande");
+        }
+
+        // 4. Valider le transporteur (si fourni)
+        Transporteur transporteur = null;
+        if (transporteurId != null) {
+            transporteur = transporteurRepository.findById(transporteurId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Transporteur introuvable"));
+        }
+
+        // 5. Créer la livraison avec les valeurs initiales
+        Livraison livraison = new Livraison();
+        livraison.setCommande(commande);
+        livraison.setAdresse(commande.getAdresseLivraison());
+        livraison.setStatut(Livraison.StatutLivraison.EN_PREPARATION);
+        livraison.setCout(cout != null ? cout : 0.0);
+        livraison.setDateLivraison(LocalDateTime.now().plusDays(3));
+        livraison.setTransporteur(transporteur);
+
+        // 6. Sauvegarder et retourner le DTO
+        Livraison saved = rep.save(livraison);
+        return converter.toLivraisonDTO(saved);
+    }
+
+    // ============================================================
+    // ASSIGNATION DE TRANSPORTEUR
+    // ============================================================
+
+    /**
+     * Assigne un transporteur à une livraison
+     * 
+     * @param livraisonId ID de la livraison
+     * @param transporteurId ID du transporteur à assigner
+     * @return DTO de la livraison mise à jour
+     * 
+     * Validations:
+     * - La livraison doit exister
+     * - La livraison doit avoir le statut EN_PREPARATION
+     * - Le transporteur doit exister
+     * 
+     * Comportement:
+     * - Assigne le transporteur à la livraison
+     * - Maintient le statut actuel de la livraison
+     */
+    @Transactional
+    public LivraisonDTO assignerTransporteur(Integer livraisonId, Integer transporteurId) {
+        // 1. Charger la livraison et valider qu'elle existe
+        Livraison livraison = rep.findById(livraisonId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Livraison introuvable"));
+
+        // 2. Valider que la livraison est en statut EN_PREPARATION
+        if (livraison.getStatut() != Livraison.StatutLivraison.EN_PREPARATION) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, 
+                    "Le transporteur ne peut être assigné qu'aux livraisons en préparation");
+        }
+
+        // 3. Charger le transporteur et valider qu'il existe
+        Transporteur transporteur = transporteurRepository.findById(transporteurId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Transporteur introuvable"));
+
+        // 4. Assigner le transporteur à la livraison
+        livraison.setTransporteur(transporteur);
+
+        // 5. Sauvegarder et retourner le DTO
+        Livraison saved = rep.save(livraison);
+        return converter.toLivraisonDTO(saved);
+    }
+
     // ============================================================
     // CHANGEMENT DE STATUT
     // ============================================================
@@ -154,54 +269,73 @@ public class LivraisonService {
      * Change le statut d'une livraison - retourne un DTO
      *
      * Logique métier automatique :
-     * - EN_TRANSIT  → met la commande à EXPEDIEE
+     * - EXPEDIEE    → met la commande à EXPEDIEE
      * - LIVREE      → met la commande à LIVREE + met à jour les stocks des produits
+     * 
+     * Règles de transition :
+     * - EN_PREPARATION → EXPEDIEE (uniquement)
+     * - EXPEDIEE → LIVREE (uniquement)
+     * - LIVREE → aucune transition autorisée
+     * 
+     * @param id ID de la livraison
+     * @param statut Nouveau statut de la livraison
+     * @return DTO de la livraison mise à jour
+     * 
+     * Validations:
+     * - La livraison doit exister
+     * - La transition de statut doit être valide
+     * - La commande ne doit pas être annulée
+     * 
+     * Comportement transactionnel:
+     * - Met à jour le statut de la livraison
+     * - Met à jour le timestamp de la livraison
+     * - Synchronise le statut de la commande associée
+     * - Toutes les modifications sont atomiques (même transaction)
      */
     @Transactional
     public LivraisonDTO changerStatut(Integer id, Livraison.StatutLivraison statut) {
+        // 1. Charger la livraison et valider qu'elle existe
         Livraison livraison = rep.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Livraison introuvable"));
 
-        validerTransitionStatut(livraison.getStatut(), statut);
-        livraison.setStatut(statut);
-        Livraison saved = rep.save(livraison);
-
-        Commande commande = saved.getCommande();
-
-        // Quand la livraison part → commande passe à EXPEDIEE
-        if (statut == Livraison.StatutLivraison.EN_TRANSIT
-                && commande.getStatut() == Commande.StatutCommande.VALIDEE) {
-            commande.setStatut(Commande.StatutCommande.EXPEDIEE);
-            commandeRepository.save(commande);
+        // 2. Charger la commande associée
+        Commande commande = livraison.getCommande();
+        
+        // 3. Valider que la commande n'est pas annulée
+        if (commande.getStatut() == Commande.StatutCommande.ANNULEE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, 
+                    "Impossible de modifier le statut d'une livraison pour une commande annulée");
         }
 
-        // Quand la livraison arrive → commande passe à LIVREE + mise à jour des stocks
-        if (statut == Livraison.StatutLivraison.LIVREE
-                && commande.getStatut() != Commande.StatutCommande.ANNULEE) {
+        // 4. Valider la transition de statut
+        validerTransitionStatut(livraison.getStatut(), statut);
+        
+        // 5. Mettre à jour le statut et le timestamp de la livraison
+        livraison.setStatut(statut);
+        livraison.setDateLivraison(LocalDateTime.now());
+        Livraison saved = rep.save(livraison);
+
+        // 6. Synchroniser le statut de la commande selon le statut de livraison
+        if (statut == Livraison.StatutLivraison.EXPEDIEE) {
+            // Quand la livraison est expédiée → commande passe à EXPEDIEE
+            boolean isEspeces = commande.getPaiement() != null && commande.getPaiement().getMethodePaiement() == Paiement.MethodePaiement.ESPECES;
+            if (commande.getStatut() == Commande.StatutCommande.VALIDEE || (commande.getStatut() == Commande.StatutCommande.EN_ATTENTE && isEspeces)) {
+                commande.setStatut(Commande.StatutCommande.EXPEDIEE);
+                commandeRepository.save(commande);
+            }
+        } else if (statut == Livraison.StatutLivraison.LIVREE) {
+            // Quand la livraison arrive → commande passe à LIVREE
             commande.setStatut(Commande.StatutCommande.LIVREE);
             commandeRepository.save(commande);
-
-            // Mise à jour automatique des stocks à la réception
-            mettreAJourStocks(commande.getId());
+            // NB: Le stock a déjà été déduit lors de la réservation (CommandeService), pas besoin de le mettre à jour ici.
         }
 
         return converter.toLivraisonDTO(saved);
     }
 
-    /**
-     * Met à jour le stock de chaque produit présent dans les lignes de la commande
-     * Stock = stock actuel + quantité commandée (réception de marchandise)
-     */
-    private void mettreAJourStocks(Integer commandeId) {
-        List<LigneCommande> lignes = ligneCommandeRepository.findByCommandeId(commandeId);
-        for (LigneCommande ligne : lignes) {
-            Produit produit = ligne.getProduit();
-            int ancienStock = produit.getQuantiteEnStock() != null ? produit.getQuantiteEnStock() : 0;
-            produit.setQuantiteEnStock(ancienStock + ligne.getQuantite());
-            produitRepository.save(produit);
-        }
-    }
+    // Suppression de mettreAJourStocks() car redondant et génère un bug sur les stocks clients
 
     // ============================================================
     // SUPPRESSION
@@ -224,20 +358,25 @@ public class LivraisonService {
 
     /**
      * Valide qu'une transition de statut de livraison est autorisée
-     * Règles : EN_PREPARATION → EN_TRANSIT → LIVREE (sens unique)
+     * Règles : EN_PREPARATION → EXPEDIEE → LIVREE (sens unique)
+     * 
+     * Transitions valides:
+     * - EN_PREPARATION → EXPEDIEE
+     * - EXPEDIEE → LIVREE
+     * - LIVREE → aucune transition
      */
     private void validerTransitionStatut(Livraison.StatutLivraison actuel, Livraison.StatutLivraison cible) {
         if (actuel == cible) return;
 
         boolean valide =
                 (actuel == Livraison.StatutLivraison.EN_PREPARATION
-                    && cible == Livraison.StatutLivraison.EN_TRANSIT)
-             || (actuel == Livraison.StatutLivraison.EN_TRANSIT
+                    && cible == Livraison.StatutLivraison.EXPEDIEE)
+             || (actuel == Livraison.StatutLivraison.EXPEDIEE
                     && cible == Livraison.StatutLivraison.LIVREE);
 
         if (!valide) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Transition de statut de livraison non autorisee");
+                    "Transition de statut de livraison non autorisee : " + actuel + " -> " + cible);
         }
     }
 }

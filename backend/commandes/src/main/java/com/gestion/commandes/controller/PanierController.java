@@ -47,8 +47,8 @@ public class PanierController {
      * DELETE /api/panier/client/{clientId} - Vide le panier d'un client
      */
     @DeleteMapping("/client/{clientId}")
-    public ResponseEntity<String> viderPanier(@PathVariable Integer clientId) {
+    public ResponseEntity<Void> viderPanier(@PathVariable Integer clientId) {
         service.viderPanier(clientId);
-        return ResponseEntity.ok("Panier vidé avec succès");
+        return ResponseEntity.noContent().build();
     }
 }
